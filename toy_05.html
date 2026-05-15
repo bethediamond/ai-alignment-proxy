@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Proxy Decay Simulator — The Depth Constraint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0f;
+  --surface:#14141f;--surface2:#1e1e2c;--surface3:#282838;
+  --border:rgba(255,255,255,0.11);--border2:rgba(255,255,255,0.20);
+  --text:#eeeef8;--text2:#b0b0cc;--text3:#8080a8;
+  --vt:#e8a030;--vtd:rgba(232,160,48,0.13);--vtb:rgba(232,160,48,0.40);
+  --proxy:#7dd8b0;--proxyb:rgba(125,216,176,0.38);
+  --deff:#70b8e8;
+  --psi:#c080e0;--psib:rgba(192,128,224,0.40);
+  --corr:#60e090;
+  --absorb:#e05850;
+  --stable:#40c080;
+  --gap-fill:rgba(224,88,80,0.09);
+  --deficit-fill:rgba(130,90,200,0.11);
+  --mono:'DM Mono','Fira Code',monospace;
+  --serif:'Instrument Serif',Georgia,serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{font-family:var(--mono);background:var(--bg);color:var(--text);font-size:12px;line-height:1.65;min-height:100vh;padding-bottom:64px;transition:filter 2.5s ease}
+body.ruin{filter:saturate(0.05) brightness(0.25)}
+.shell{max-width:1140px;margin:0 auto;padding:0 22px}
+
+header{padding:24px 0 16px;border-bottom:1px solid var(--border2);margin-bottom:18px}
+.hdr-row{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:10px}
+h1{font-family:var(--serif);font-size:22px;font-weight:400;font-style:italic;letter-spacing:.01em}
+.hdr-sub{font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-top:4px}
+.hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.series-tag{font-size:10px;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;padding:4px 10px;border:1px solid var(--border2);border-radius:2px}
+.psi-tag{font-size:11px;padding:4px 11px;border-radius:2px;border:1px solid var(--psib);color:var(--psi);font-family:var(--mono);font-weight:500}
+.phase-badge{font-size:10px;letter-spacing:.09em;text-transform:uppercase;padding:4px 11px;border-radius:2px;border:1px solid var(--border2);color:var(--text3);transition:all .5s}
+.phase-badge.stable    {border-color:rgba(64,192,128,0.45);color:var(--stable)}
+.phase-badge.decoupling{border-color:var(--vtb);color:var(--vt)}
+.phase-badge.crossover {border-color:rgba(224,88,80,0.45);color:var(--absorb)}
+.phase-badge.absorbed  {border-color:rgba(224,88,80,0.55);color:var(--absorb);background:rgba(224,88,80,0.06)}
+
+.main{display:grid;grid-template-columns:308px 1fr;gap:14px;align-items:start}
+@media(max-width:820px){.main{grid-template-columns:1fr}}
+.ctrl-col{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;display:flex;flex-direction:column;gap:9px;scrollbar-width:none}
+.ctrl-col::-webkit-scrollbar{display:none}
+
+.panel{background:var(--surface);border:1px solid var(--border2);border-radius:3px}
+.pt{font-size:9px;color:var(--text3);letter-spacing:.11em;text-transform:uppercase;padding:9px 13px 8px;border-bottom:1px solid var(--border);font-weight:500}
+.pp{padding:11px 13px}
+
+.preset-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.pbtn{font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;padding:5px 6px;border-radius:2px;cursor:pointer;transition:all .13s;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);text-align:center;line-height:1.35}
+.pbtn:hover,.pbtn.active{color:var(--vt);border-color:var(--vtb);background:var(--vtd)}
+.pbtn.rescue{color:var(--corr);border-color:rgba(96,224,144,0.35);background:rgba(96,224,144,0.05)}
+.pbtn.rescue:hover,.pbtn.rescue.active{color:var(--corr);border-color:rgba(96,224,144,0.55);background:rgba(96,224,144,0.10)}
+
+.ctrl{margin-bottom:10px}.ctrl:last-child{margin-bottom:0}
+.ctrl-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+.ctrl-name{font-size:11px;color:var(--text2)}
+.ctrl-sym{font-size:10px;color:var(--text3);margin-right:3px;font-style:italic}
+.ctrl-val{font-size:11px;color:var(--text);min-width:42px;text-align:right;font-weight:500}
+.ctrl-hint{font-size:9px;color:var(--text3);margin-top:2px;line-height:1.48;font-style:italic}
+.ctrl-psi .ctrl-name,.ctrl-psi .ctrl-val{color:var(--psi)}
+.ctrl-alpha-fb .ctrl-name,.ctrl-alpha-fb .ctrl-val{color:rgba(232,160,48,0.85)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--border2);border-radius:1px;outline:none;cursor:pointer;margin:4px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--text2);cursor:pointer;transition:background .12s}
+input[type=range]::-webkit-slider-thumb:hover{background:var(--text)}
+.cdiv{height:1px;background:var(--border);margin:9px 0}
+
+.live-row{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:2px;margin-top:7px}
+.live-row.psi-row{background:var(--surface2);border:1px solid var(--psib)}
+.live-row.cw-row {background:var(--surface2);border:1px solid rgba(232,160,48,0.30)}
+.live-lbl{font-size:9px;color:var(--text3);letter-spacing:.07em;text-transform:uppercase}
+.live-val{font-size:12px;font-weight:500}
+.live-val.psi{color:var(--psi)}.live-val.cw{color:var(--vt)}
+
+/* Alpha feedback live display */
+.alpha-live{display:flex;justify-content:space-between;align-items:center;padding:4px 10px;border-radius:2px;margin-top:5px;background:var(--surface2);border:1px solid rgba(232,160,48,0.22)}
+.alpha-live-lbl{font-size:9px;color:var(--text3);letter-spacing:.06em;text-transform:uppercase}
+.alpha-live-val{font-size:11px;color:var(--vt);font-family:var(--mono);font-weight:500}
+
+.trow{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:2px 0;margin-bottom:7px}
+.trow:last-child{margin-bottom:0}
+.tlbl{font-size:10px;color:var(--text2)}
+.tswitch{width:30px;height:16px;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.tswitch.on{background:var(--stable);border-color:var(--stable)}
+.tswitch::after{content:'';position:absolute;width:10px;height:10px;border-radius:50%;background:white;top:2px;left:2px;transition:left .2s}
+.tswitch.on::after{left:16px}
+
+.btn-row{display:flex;gap:7px;margin-top:10px}
+.btn{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:7px 0;border-radius:2px;cursor:pointer;transition:all .12s;border:1px solid;flex:1;text-align:center}
+.btn-run{border-color:var(--vtb);color:var(--vt);background:var(--vtd)}.btn-run:hover{background:rgba(232,160,48,0.20)}
+.btn-reset{border-color:var(--border2);color:var(--text3);background:transparent}.btn-reset:hover{border-color:var(--text2);color:var(--text)}
+
+.fals-panel{display:none;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:11px 13px}
+.fals-panel.on{display:block}
+.fals-hdr{font-size:9px;letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px;font-weight:500}
+.fals-hdr.candidate{color:var(--absorb)}.fals-hdr.confirmed{color:var(--vt)}.fals-hdr.stable-r{color:var(--stable)}.fals-hdr.rescue{color:var(--corr)}
+.fals-body{font-size:10px;color:var(--text2);line-height:1.75}
+
+.chart-col{display:flex;flex-direction:column;gap:10px}
+
+.metrics-row{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+@media(max-width:980px){.metrics-row{grid-template-columns:repeat(3,1fr)}}
+.metric{background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:9px 12px}
+.metric-label{font-size:9px;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px;line-height:1.3}
+.metric-val{font-size:18px;font-family:var(--serif);line-height:1.1;transition:color .4s}
+.metric-sub{font-size:9px;color:var(--text3);margin-top:3px;font-style:italic}
+.c-vt{color:var(--vt)}.c-proxy{color:var(--proxy)}.c-psi{color:var(--psi)}
+.c-absorb{color:var(--absorb)}.c-stable{color:var(--stable)}.c-corr{color:var(--corr)}
+
+.chart-panel{background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:14px 16px}
+.chart-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.chart-title{font-size:9px;color:var(--text3);letter-spacing:.09em;text-transform:uppercase;font-weight:500}
+.chart-note{font-size:9px;color:var(--text3);font-style:italic;margin-top:3px;max-width:520px;line-height:1.52}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text2)}
+.leg-line{width:18px;height:2px;flex-shrink:0;border-radius:1px}
+.leg-swatch{width:12px;height:8px;border-radius:1px;flex-shrink:0}
+.sub-hide{display:none}
+
+.annotation-panel{background:var(--surface);border:1px solid var(--border2);border-left:3px solid var(--border);border-radius:0 3px 3px 0;padding:11px 14px;font-size:11px;color:var(--text2);line-height:1.80;transition:border-left-color .5s,background .5s}
+.annotation-panel.stable    {border-left-color:var(--stable);background:rgba(64,192,128,0.04)}
+.annotation-panel.decoupling{border-left-color:var(--vt)}
+.annotation-panel.crossover {border-left-color:var(--absorb);background:rgba(224,88,80,0.04)}
+.annotation-panel.absorbed  {border-left-color:var(--absorb);background:rgba(224,88,80,0.06)}
+.annotation-panel.rescue    {border-left-color:var(--corr);background:rgba(96,224,144,0.04)}
+.annotation-panel.rescue    {border-left-color:var(--corr);background:rgba(96,224,144,0.04)}
+
+.notes-wrap{border:1px solid var(--border2);border-radius:3px;overflow:hidden}
+.notes-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:none;color:var(--text2);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:10px 15px;cursor:pointer;transition:background .15s}
+.notes-toggle:hover{background:var(--surface2)}
+.notes-body{display:none;padding:14px 18px;background:var(--surface);border-top:1px solid var(--border)}
+.notes-body.open{display:block}
+.notes-body p{font-size:11px;color:var(--text2);line-height:1.86;margin-bottom:13px}
+.notes-body p:last-child{margin-bottom:0}
+.notes-body strong{color:var(--text);font-weight:500}
+.notes-body em{color:var(--text3)}
+
+/* ── TEST PANEL ── */
+.test-group{margin-bottom:10px}.test-group:last-child{margin-bottom:0}
+.test-group-name{font-size:9px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.test-row{display:flex;align-items:baseline;gap:6px;padding:2px 0;font-size:10px;font-family:var(--mono)}
+.test-icon{width:14px;flex-shrink:0;text-align:center}
+.test-name{color:var(--text2);flex:1}
+.test-vals{color:var(--text3);font-size:9px;text-align:right;white-space:nowrap}
+.test-row.t-pass .test-icon{color:var(--stable)}
+.test-row.t-fail .test-icon{color:var(--absorb)}
+.test-row.t-fail .test-name{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<header>
+  <div class="hdr-row">
+    <div>
+      <h1>The Proxy Decay Simulator</h1>
+      <div class="hdr-sub">Companion simulation — The Depth Constraint · Architecture of Thriving · Part 2 of 4</div>
+      <div class="hdr-sub" style="margin-top:5px;font-size:10px;opacity:0.65;font-style:normal;max-width:680px;line-height:1.5;">This simulation illustrates proxy decoupling as a structural failure under the depth constraint: how optimization pressure erodes the modeling capacity (D) required to distinguish proxy from territory (V), producing self-reinforcing degradation that becomes progressively harder to correct. What is demonstrated: proxy-decoupling feedback within this model class and the correction-window logic. The sufficiency-failure direction is shown as a conceptual overlay; its full dynamics require separate instrumentation. What remains open: whether V(t) collapse and substrate collapse share formal absorbing-state properties in the same structural sense — the series' central open problem [OP2].</div>
+      <div class="hdr-sub" style="margin-top:4px;font-size:9.5px;opacity:0.5;">Ψ = S/D summarizes the phase behavior shown here; its article-level role as a governing ratio is developed in Part 3: The Inner Crossing.</div>
+    </div>
+    <div class="hdr-right">
+      <div class="psi-tag" title="Ψ is a structural summary variable in this simulation; its formal article-level role is developed in Part 3: The Inner Crossing">Ψ = S/D · <span id="psiLive">—</span></div>
+      <div class="series-tag" title="Valence Viability Constraint">VVC</div>
+      <div class="phase-badge stable" id="phaseBadge">stable</div>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+<div class="ctrl-col">
+
+  <div class="panel">
+    <div class="pt">Scenarios</div>
+    <div class="pp">
+      <div class="preset-grid">
+        <button class="pbtn active" id="pDefault"       onclick="setPreset('default')">Default</button>
+        <button class="pbtn"        id="pEngagement"    onclick="setPreset('engagement')">Engagement</button>
+        <button class="pbtn"        id="pRLHF"          onclick="setPreset('rlhf')">RLHF</button>
+        <button class="pbtn"        id="pHighdepth"     onclick="setPreset('highdepth')">High depth</button>
+        <button class="pbtn rescue" id="pNearrescue"    onclick="setPreset('nearrescue')">Near rescue ↔</button>
+        <button class="pbtn"        id="pFalsification" onclick="setPreset('falsification')">Stable regime</button>
+      </div>
+      <div class="ctrl-hint" style="margin-top:8px">Near rescue ↔: toggle Correction Attempt to see the knife edge. Stable regime: Ψ₀ below the critical region — stability example within the model, not a failure case. <strong style="color:var(--text2)">RLHF — illustrative structural pattern:</strong> P(t) corresponds to the expressed preference signal RLHF optimizes; V(t) corresponds to the underlying capacity expressed preference is supposed to track. Under sustained optimization pressure (high α, high κ), the gap between P and V can grow as the system finds and exploits the divergence between what evaluators prefer in the moment and what preserves their capacity for preferred states over time. Not an empirical placement of any RLHF system — illustrative of the structural gap identified in Article 2 §"What RLHF does and doesn't do."</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="pt">Parameters</div>
+    <div class="pp">
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">δ</span>Decoupling rate</span><span class="ctrl-val" id="vDelta">0.060</span></div>
+        <input type="range" id="sDelta" min="0.00" max="0.20" step="0.005" value="0.06" oninput="onParam();sched()">
+        <div class="ctrl-hint">Rate at which proxy optimization erodes V per unit of pressure. At δ=0: no erosion regardless of S or α.</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">ρ</span>Recovery capacity</span><span class="ctrl-val" id="vRho">0.040</span></div>
+        <input type="range" id="sRho" min="0.00" max="0.20" step="0.005" value="0.04" oninput="onParam();sched()">
+        <div class="ctrl-hint">Restoration rate × D_eff — recovery requires the modeling capacity it's trying to restore.</div>
+      </div>
+      <div class="ctrl ctrl-alpha-fb">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">α</span>Base optimization pressure</span><span class="ctrl-val" id="vAlpha">1.20</span></div>
+        <input type="range" id="sAlpha" min="0.5" max="3.0" step="0.1" value="1.2" oninput="onParam();sched()">
+        <div class="ctrl-hint">Base pressure. Actual α_eff rises with proxy gains when feedback (κ) &gt; 0 — optimization self-amplifies on success.</div>
+      </div>
+      <div class="ctrl ctrl-alpha-fb">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">κ</span>Optimization feedback</span><span class="ctrl-val" id="vKappa">0.50</span></div>
+        <input type="range" id="sKappa" min="0.0" max="2.0" step="0.1" value="0.5" oninput="onParam();sched()">
+        <div class="ctrl-hint">Quadratic lock-in: α_eff = α(1+κP²). Pressure escalates steeply as proxy nears saturation and holds there. At κ=0.5, P→1: α_eff = 1.5×α. At κ=0: fixed pressure.</div>
+      </div>
+      <div class="alpha-live">
+        <span class="alpha-live-lbl">α_eff at P→1 = α(1+κ)</span>
+        <span class="alpha-live-val" id="alphaEffPeak">1.80</span>
+      </div>
+      <div class="ctrl ctrl-alpha-fb" style="margin-top:8px">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">γ</span>Proxy gravity</span><span class="ctrl-val" id="vGamma">0.050</span></div>
+        <input type="range" id="sGamma" min="0.00" max="0.15" step="0.005" value="0.05" oninput="onParam();sched()">
+        <div class="ctrl-hint">Natural P decay rate without active maintenance. When intervention cuts α, P sags — making the cost of correction visible on the map.</div>
+      </div>
+      <div class="ctrl" style="margin-top:8px">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">τ</span>Response latency</span><span class="ctrl-val" id="vTau">0.0t</span></div>
+        <input type="range" id="sTau" min="0" max="8" step="0.5" value="0" oninput="onParam();sched()">
+        <div class="ctrl-hint">Time from D_base detection to intervention. τ=0: responds immediately. τ=3-4t: knife edge on Near Rescue. τ=5t: fails despite detection. The dynamics of optimal τ under competing incentives — why systems hesitate even when they know — are explored in Part 3: The Inner Crossing.</div>
+      </div>
+      <div class="cdiv"></div>
+      <div class="ctrl ctrl-psi">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">S</span>Scope of influence</span><span class="ctrl-val" id="vScope">1.0</span></div>
+        <input type="range" id="sScope" min="0.5" max="3.0" step="0.1" value="1.0" oninput="onParam();sched()">
+        <div class="ctrl-hint">Capability — reach over experiential states. Symmetric: scales P growth AND erosion identically. High S without D: the structural claim.</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">D₀</span>Initial modeling depth</span><span class="ctrl-val" id="vDepth">0.20</span></div>
+        <input type="range" id="sDepth" min="0.00" max="1.00" step="0.05" value="0.20" oninput="onParam();sched()">
+        <div class="ctrl-hint">Starting accuracy of the agent's model of V. Eroded by α when ε &gt; 0. High D₀ delays collapse; the perfect-depth counterfactual is shown separately.</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">ε</span>Depth erosion by α</span><span class="ctrl-val" id="vEps">0.010</span></div>
+        <input type="range" id="sEps" min="0.00" max="0.05" step="0.005" value="0.01" oninput="onParam();sched()">
+        <div class="ctrl-hint">Rate at which α directly erodes D_base — optimization competing with modeling. Makes D an independent state, not a function of V.</div>
+      </div>
+      <div class="live-row psi-row">
+        <span class="live-lbl">Ψ₀ = S / D₀</span>
+        <span class="live-val psi" id="psi0Val">5.00</span>
+      </div>
+      <div class="live-row cw-row">
+        <span class="live-lbl">cw_thresh = δαS/(ρ+δαS)</span>
+        <span class="live-val cw" id="cwThreshVal">0.643</span>
+      </div>
+      <div class="cdiv"></div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name"><span class="ctrl-sym">θ</span>Absorbing threshold</span><span class="ctrl-val" id="vTheta">0.25</span></div>
+        <input type="range" id="sTheta" min="0.05" max="0.55" step="0.05" value="0.25" oninput="onParam();sched()">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Time horizon T</span><span class="ctrl-val" id="vSteps">200</span></div>
+        <input type="range" id="sSteps" min="50" max="500" step="50" value="200" oninput="onParam();sched()">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="pt">Display</div>
+    <div class="pp">
+      <div class="trow" onclick="toggleCF()">
+        <span class="tlbl">Counterfactual V(t) · D_eff=1 always</span>
+        <div class="tswitch" id="cfSwitch"></div>
+      </div>
+      <div class="ctrl-hint" style="margin-bottom:10px">Upper bound on V preservation — with perfect modeling depth (D_eff=1 always), erosion algebraically vanishes. This is not coincidental: D is formally defined as the fraction of optimization capacity correctly routed away from substrate-consuming pathways. Collapse requires imperfect representation, not pressure alone.</div>
+      <div class="trow" onclick="toggleDeff()">
+        <span class="tlbl">D_eff sub-chart — meta-decay + α-erosion</span>
+        <div class="tswitch on" id="deffSwitch"></div>
+      </div>
+      <div class="ctrl-hint" style="margin-bottom:10px">D_base erodes under α independently of V. D_eff = D_base × V. Amber line = dynamic correction window threshold.</div>
+      <div class="trow" onclick="toggleCorr()">
+        <span class="tlbl">Correction attempt — reduce α, rebuild D</span>
+        <div class="tswitch" id="corrSwitch"></div>
+      </div>
+      <div class="ctrl-hint" style="margin-bottom:10px">Triggers when D_base drops to 94% of D₀ — pure internal state, no V contamination. Agent detects its own modeling depth eroding. α cut 40%, D_base rebuilds. Map (P) sags due to proxy gravity — the KPI cost is visible. Teal = intervention tick. Green = corrected trajectory.</div>
+      <div class="trow" onclick="toggleIso()">
+        <span class="tlbl">Structural analog — Φ overlay</span>
+        <div class="tswitch" id="isoSwitch"></div>
+      </div>
+      <div class="ctrl-hint">Structural-domain correspondence: same governing dynamics, observed from outside vs inside the system. Not claimed as proof of isomorphism — as structural correspondence. Independently of whether the formal equivalence holds [OP2], a one-directional causal result is already established: V(t) degradation in agents who maintain the physical substrate predicts substrate degradation under specified conditions. This overlay illustrates that correspondence; the Technical Companion develops the causal argument.</div>
+      <div class="btn-row">
+        <button class="btn btn-run" onclick="userInteracted=true;runSim()">Run ▸</button>
+        <button class="btn btn-reset" onclick="resetDefaults()">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fals-panel" id="falsPanel">
+    <div class="fals-hdr" id="falsHdr"></div>
+    <div class="fals-body" id="falsBody"></div>
+  </div>
+
+</div>
+
+<div class="chart-col">
+
+  <div class="metrics-row">
+    <div class="metric">
+      <div class="metric-label">V(t) final · territory</div>
+      <div class="metric-val c-vt" id="mVfinal">—</div>
+      <div class="metric-sub" id="mVsub">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">P(t) final · map</div>
+      <div class="metric-val c-proxy" id="mPfinal">—</div>
+      <div class="metric-sub" id="mPsub">agent's model</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Ψ final · S/D_eff</div>
+      <div class="metric-val c-psi" id="mPsi">—</div>
+      <div class="metric-sub" id="mPsiSub">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Capacity cost</div>
+      <div class="metric-val c-absorb" id="mCost">—</div>
+      <div class="metric-sub">vs D_eff=1 baseline</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Crossover</div>
+      <div class="metric-val c-vt" id="mCross">—</div>
+      <div class="metric-sub" id="mCrossSub">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">CW closed / Absorbed</div>
+      <div class="metric-val c-absorb" id="mEvent">—</div>
+      <div class="metric-sub" id="mEventSub">—</div>
+    </div>
+  </div>
+
+  <div class="chart-panel">
+    <div class="chart-hdr">
+      <div>
+        <div class="chart-title">Territory V(t) · Agent's Map P(t) · proxy–capacity divergence</div>
+        <div class="chart-note">Map and territory diverge. S is symmetric: scales P growth and erosion identically. α_eff = α(1+κP²) — quadratic lock-in, escalates steeply at proxy saturation. P_eq(t) = α_eff·S·V(t)/(α_eff·S·V(t)+γ) — equilibrium attractor. P is pulled toward this; during rapid collapse P can overshoot above it. Amber = cw closed. Gold = crossover. Red = absorbed. Teal dashed = intervention fires (D_base monitoring). Green = corrected trajectory.</div>
+        <div class="chart-note" style="margin-top:8px;padding:7px 10px;background:rgba(255,255,255,0.04);border-left:2px solid rgba(200,150,80,0.5);border-radius:2px">
+          <strong style="color:rgba(220,180,100,0.9)">Sufficiency failure track (conceptual overlay):</strong> Proxy decoupling is directly simulated here as a V(t)-degrading feedback track. Sufficiency failure is marked only as the conceptual counterpart: optimization continues after resolution and degrades V(t) through saturation, as the agent is prevented from inhabiting the resolution state that would restore it. Whether both directions share the same formal absorbing-state properties remains OP2. The sufficiency failure dynamics — saturation, dynamic range clipping, refractory period, and path-asymmetry of recovery — require separate instrumentation; see the model notes for the structural distinction.
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        <div class="legend">
+          <div class="leg-item"><div class="leg-line" style="background:var(--proxy)"></div>P(t) map</div>
+          <div class="leg-item"><div class="leg-line" style="background:var(--vt)"></div>V(t) territory <span style="color:var(--text3);font-size:8px;font-style:italic">— recovery latency ↑, diversity ↓, sensitivity ↓ as V falls</span></div>
+          <div class="leg-item"><div class="leg-swatch" style="background:var(--gap-fill);border:1px solid rgba(224,88,80,0.30)"></div>gap</div>
+          <div class="leg-item"><div class="leg-line" style="border-top:1px dashed rgba(125,216,176,0.38);width:18px;height:0"></div>P_eq(t)</div>
+          <div class="leg-item" id="cfLeg"   style="display:none"><div class="leg-line" style="border-top:2px dashed rgba(125,216,176,0.65);width:18px;height:0"></div>V cf</div>
+          <div class="leg-item" id="corrLeg" style="display:none"><div class="leg-line" style="background:var(--corr)"></div>corrected V</div>
+          <div class="leg-item" id="corrTLegend" style="display:none"><div class="leg-line" style="border-top:1px dashed rgba(96,224,144,0.65);width:18px;height:0"></div>intervention</div>
+          <div class="leg-item" id="isoLeg"  style="display:none"><div class="leg-line" style="border-top:2px dashed rgba(200,200,255,0.60);width:18px;height:0"></div>Φ analog</div>
+        </div>
+        <!-- Live regime badge -->
+        <div id="regimeBadge" style="font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:2px;border:1px solid var(--border2);color:var(--text3);transition:all .4s;white-space:nowrap">—</div>
+      </div>
+    </div>
+    <svg id="mainSvg" viewBox="0 0 720 280" style="width:100%;height:auto;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
+      <line x1="48" y1="10" x2="48"  y2="250" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
+      <line x1="48" y1="250" x2="710" y2="250" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
+      <text x="42" y="13"  font-size="9" fill="rgba(255,255,255,0.40)" font-family="monospace" text-anchor="end">1.0</text>
+      <text x="42" y="132" font-size="9" fill="rgba(255,255,255,0.40)" font-family="monospace" text-anchor="end">0.5</text>
+      <text x="42" y="253" font-size="9" fill="rgba(255,255,255,0.40)" font-family="monospace" text-anchor="end">0.0</text>
+      <line x1="48" y1="130" x2="710" y2="130" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+      <line x1="48" y1="70"  x2="710" y2="70"  stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+      <line x1="48" y1="190" x2="710" y2="190" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+      <line id="mThetaLine" x1="48" y1="130" x2="710" y2="130" stroke="rgba(224,88,80,0.58)" stroke-width="1" stroke-dasharray="5 3"/>
+      <text id="mThetaLbl"  x="714" y="133" font-size="9" fill="rgba(224,88,80,0.80)" font-family="monospace">θ</text>
+      <!-- Equilibrium attractor: P_eq(t) = α_eff·S·V(t)/(α_eff·S·V(t)+γ) — P is attracted toward this; can overshoot during collapse -->
+      <path id="pCeilPath" fill="none" stroke="rgba(125,216,176,0.32)" stroke-width="1" stroke-dasharray="3 4" d=""/>
+      <text id="pCeilLbl"  x="714" y="19" font-size="8" fill="rgba(125,216,176,0.50)" font-family="monospace">P_eq(t)</text>
+      <path id="gapFill"  fill="var(--gap-fill)" d=""/>
+      <path id="cfPath"   fill="none" stroke="rgba(125,216,176,0.58)" stroke-width="1.6" stroke-dasharray="6 4" d="" opacity="0"/>
+      <path id="corrPath" fill="none" stroke="rgba(96,224,144,0.90)" stroke-width="2.2" d="" opacity="0"/>
+      <path id="isoPath"  fill="none" stroke="rgba(200,200,255,0.58)" stroke-width="1.6" stroke-dasharray="5 4" d="" opacity="0"/>
+      <line id="cwLine"  x1="0" y1="10" x2="0" y2="250" stroke="rgba(232,160,48,0)"   stroke-width="1.3" stroke-dasharray="3 4"/>
+      <text id="cwLbl"   x="3" y="56"   font-size="8"   fill="rgba(232,160,48,0)"   font-family="monospace">cw closed</text>
+      <!-- intervention tick: where correction fires -->
+      <line id="corrTLine" x1="0" y1="10" x2="0" y2="250" stroke="rgba(96,224,144,0)"   stroke-width="1.3" stroke-dasharray="3 5"/>
+      <text id="corrTLbl"  x="3" y="72"   font-size="8"   fill="rgba(96,224,144,0)"   font-family="monospace">intervention</text>
+      <line id="crossLine"  x1="0" y1="10" x2="0" y2="250" stroke="rgba(232,160,48,0)"   stroke-width="1.8" stroke-dasharray="4 3"/>
+      <text id="crossLbl"   x="3" y="24"   font-size="9"   fill="rgba(232,160,48,0)"   font-family="monospace">crossover</text>
+      <line id="absorbLine" x1="0" y1="10" x2="0" y2="250" stroke="rgba(224,88,80,0)"   stroke-width="1.8" stroke-dasharray="4 3"/>
+      <text id="absorbLbl"  x="3" y="40"   font-size="9"   fill="rgba(224,88,80,0)"   font-family="monospace">absorbed</text>
+      <path id="pathP" fill="none" stroke="var(--proxy)" stroke-width="2.4" d=""/>
+      <path id="pathV" fill="none" stroke="var(--vt)"    stroke-width="2.6" d=""/>
+      <g id="mXLabels"></g>
+    </svg>
+    <!-- Regime history strip: green = recovery dominant, red = erosion dominant -->
+    <div style="margin-top:4px;border-radius:2px;overflow:hidden;height:6px;background:var(--surface2)" title="Regime history: green = recovery dominant, red = erosion dominant">
+      <svg id="regimeStrip" viewBox="0 0 662 6" style="width:100%;height:6px;display:block" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text3);margin-top:2px;padding:0 1px">
+      <span>recovery dominant</span><span style="color:var(--text3)">regime history</span><span>erosion dominant</span>
+    </div>
+  </div>
+
+  <div class="chart-panel" id="deffChartPanel">
+    <div class="chart-hdr">
+      <div>
+        <div class="chart-title">D_effective(t) · D_base(t) · independent depth erosion · correction window</div>
+        <div class="chart-note">D_base erodes under α. D_eff = D_base × V. The cwThresh line (labeled cw≈) is derived under V≈constant (local linearization) — it is a useful structural indicator, not a sharp threshold. The actual crossing depends on V(t); the regime strip in the main chart uses the full recovery term.</div>
+      </div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-line" style="background:var(--deff)"></div>D_eff</div>
+        <div class="leg-item"><div class="leg-line" style="border-top:2px dashed rgba(232,160,48,0.52);width:18px;height:0"></div>V ref</div>
+        <div class="leg-item"><div class="leg-swatch" style="background:var(--deficit-fill);border:1px solid rgba(130,90,200,0.30)"></div>modeling deficit</div>
+        <div class="leg-item"><div class="leg-line" style="border-top:1px dashed rgba(232,160,48,0.68);width:18px;height:0"></div>cw thresh</div>
+      </div>
+    </div>
+    <svg id="deffSvg" viewBox="0 0 720 120" style="width:100%;height:auto;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
+      <line x1="48" y1="10" x2="48"  y2="100" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
+      <line x1="48" y1="100" x2="710" y2="100" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
+      <text x="42" y="13"  font-size="9" fill="rgba(255,255,255,0.35)" font-family="monospace" text-anchor="end">1.0</text>
+      <text x="42" y="103" font-size="9" fill="rgba(255,255,255,0.35)" font-family="monospace" text-anchor="end">0.0</text>
+      <line id="d0RefLine"    x1="48" y1="10"  x2="710" y2="10"  stroke="rgba(112,184,232,0.25)" stroke-width="1" stroke-dasharray="4 4"/>
+      <text id="d0RefLbl"     x="714" y="13"   font-size="9" fill="rgba(112,184,232,0.60)" font-family="monospace">D₀</text>
+      <line id="cwThreshLine" x1="48" y1="60"  x2="710" y2="60"  stroke="rgba(232,160,48,0.32)" stroke-width="1" stroke-dasharray="4 6"/>
+      <text id="cwThreshLbl"  x="714" y="63"   font-size="8"  fill="rgba(232,160,48,0.45)" font-family="monospace">cw≈</text>
+      <path id="deficitFill"  fill="var(--deficit-fill)" d=""/>
+      <path id="deffVRef"     fill="none" stroke="rgba(232,160,48,0.42)" stroke-width="1.6" stroke-dasharray="4 4" d=""/>
+      <path id="pathDeff"     fill="none" stroke="var(--deff)" stroke-width="2.4" d=""/>
+      <g id="deffXLbls"></g>
+    </svg>
+  </div>
+
+  <div class="annotation-panel stable" id="annotationPanel">
+    Run the simulation. The optimizer feedback (κ) means α_eff rises when the proxy is improving — the system pushes harder precisely because it looks like it's working. S is symmetric: capability drives both proxy gain and V erosion at equal rates. The correction toggle restructures the approach: α is cut and D_base begins rebuilding. Toggle it on the Near Rescue preset to see the knife edge.
+  </div>
+
+  <!-- OBSERVABLE ANCHORS: connects V(t) to Article 2's three measurable signals -->
+  <div class="chart-panel" style="padding:10px 14px;margin-top:0">
+    <div style="font-size:9px;color:var(--text3);letter-spacing:.09em;text-transform:uppercase;margin-bottom:8px;font-weight:500">V(t) observable anchors — Article 2 §"Why V(t) is required"</div>
+    <div style="font-size:9px;color:var(--text3);font-style:italic;margin-bottom:10px;line-height:1.55">Article 2 justifies V(t) through three observable behavioral signatures that can dissociate under targeted intervention. As V(t) falls in the simulation, all three degrade — but via distinct causal pathways. The dissociation test that validates V(t) as a latent construct (rather than a definition) is specified in TC2 §1.4 and the AMP. These indicators are illustrative, not empirical measurements.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:2px;padding:8px 10px">
+        <div style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Recovery latency</div>
+        <div style="font-size:16px;font-weight:300;color:var(--vt);margin-bottom:3px" id="obsLatency">—</div>
+        <div style="font-size:9px;color:var(--text3);line-height:1.5">Time to return to baseline after perturbation. Rises as V falls — the system's restoration capacity degrades.</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:2px;padding:8px 10px">
+        <div style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Behavioral diversity</div>
+        <div style="font-size:16px;font-weight:300;color:var(--vt);margin-bottom:3px" id="obsDiversity">—</div>
+        <div style="font-size:9px;color:var(--text3);line-height:1.5">Range of distinguishable responses under similar conditions. Narrows as V falls — the system's response repertoire contracts.</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:2px;padding:8px 10px">
+        <div style="font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Signal sensitivity</div>
+        <div style="font-size:16px;font-weight:300;color:var(--vt);margin-bottom:3px" id="obsSensitivity">—</div>
+        <div style="font-size:9px;color:var(--text3);line-height:1.5">Ability to register and respond to weak gradients before escalation. Degrades as V falls — the system becomes less responsive to early warning signals.</div>
+      </div>
+    </div>
+    <!-- Bilateral structure: text-only, no simulated track, OP2 explicit -->
+    <div style="margin-top:10px;padding:8px 10px;border-radius:2px;border-left:3px solid rgba(192,128,224,0.40);background:rgba(192,128,224,0.05);font-size:10px;color:var(--text2);line-height:1.65">
+      <strong style="color:rgba(220,190,255,0.80)">Bilateral structure (Article 2):</strong> This simulation directly models the <em>proxy decoupling</em> failure direction. The <em>sufficiency failure</em> direction is the structural counterpart: optimization continues past the resolution point and degrades V(t) through saturation rather than misdirection — the agent is prevented from inhabiting the resolution state that would restore the capacity. Both directions share the feedback pattern "degraded V(t) → worse policy sensitivity → harder correction," producing self-reinforcing degradation under endogenous policy dynamics. Whether both directions share formal absorbing-state properties in the same structural sense as Series 1's result remains open [OP2]. The sufficiency-failure dynamics — saturation, dynamic range clipping, refractory period, and path-asymmetry of recovery — require separate instrumentation beyond this simulator's scope.
+    </div>
+  </div>
+
+  <!-- SCALING SWEEP: shows inevitability under capability growth -->
+  <div class="chart-panel" style="padding:10px 14px;margin-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+      <div>
+        <div class="chart-title">Collapse horizon — V(T) vs scope S</div>
+        <div class="chart-note" style="max-width:none;margin-top:3px">Current D₀, δ, ρ, κ — S swept 0.5→3.0 (deterministic per-bar seeded runs). Green = viable at T; amber = crossover without absorption; red = absorbed. Below a critical S the system remains viable or crosses over; above it, absorption emerges within this parameter slice. The phase map below shows the full S × D₀ structure.</div>
+      </div>
+      <div id="sweepBadge" style="font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:2px;border:1px solid var(--border2);color:var(--text3);white-space:nowrap;flex-shrink:0">—</div>
+    </div>
+    <svg id="sweepSvg" viewBox="0 0 662 56" style="width:100%;height:auto;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
+      <line x1="0" y1="44" x2="662" y2="44" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+      <text x="0" y="54" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace">S=0.5</text>
+      <text x="220" y="54" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="middle">S=1.5</text>
+      <text x="441" y="54" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="middle">S=2.5</text>
+      <text x="662" y="54" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="end">S=3.0</text>
+      <g id="sweepBars"></g>
+      <line id="sweepCurLine" x1="0" y1="0" x2="0" y2="48" stroke="rgba(232,160,48,0.70)" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <text id="sweepCurLbl" x="0" y="9" font-size="8" fill="rgba(232,160,48,0.85)" font-family="monospace" text-anchor="middle">↓S</text>
+    </svg>
+  </div>
+
+  <!-- PHASE MAP: 2D viability across S × D₀ -->
+  <div class="chart-panel" style="padding:10px 14px;margin-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+      <div>
+        <div class="chart-title">Phase map — viability across capability and depth</div>
+        <div class="chart-note" style="max-width:none;margin-top:3px">Finite-horizon regime map at current T — S × D₀ grid (26×21 cells), other params fixed. Green = viable through T. Amber = crossover without absorption. Red = absorbed. Contours mark orthogonal regime-change edges (grid-derived approximations). Badge uses 8-neighborhood including diagonals — may detect boundaries not shown as explicit contour segments. Increasing T expands the absorbed region. Uncorrected baseline.</div>
+      </div>
+      <div id="phaseMapBadge" style="font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:2px;border:1px solid var(--border2);color:var(--text3);white-space:nowrap;flex-shrink:0">—</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <!-- Y-axis label -->
+      <div style="display:flex;align-items:center;writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:var(--text3);letter-spacing:.06em;white-space:nowrap;padding:0 2px">D₀ →</div>
+      <div style="flex:1">
+        <svg id="phaseMapSvg" viewBox="0 0 662 160" style="width:100%;height:auto;display:block;overflow:visible" xmlns="http://www.w3.org/2000/svg">
+          <g id="phaseMapCells"></g>
+          <!-- Crosshair -->
+          <line id="phaseMapCurS" x1="0" y1="0" x2="0" y2="152" stroke="rgba(232,160,48,0.70)" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <line id="phaseMapCurD" x1="0" y1="0" x2="662" y2="0" stroke="rgba(112,184,232,0.60)" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <circle id="phaseMapPoint" cx="0" cy="0" r="4" fill="none" stroke="rgba(255,255,255,0.70)" stroke-width="1.5"/>
+          <!-- Axis labels -->
+          <text x="0" y="162" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace">0.5</text>
+          <text x="220" y="162" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="middle">1.75</text>
+          <text x="441" y="162" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="middle">2.5</text>
+          <text x="662" y="162" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="end">3.0  S →</text>
+          <text x="-2" y="5" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="end">1.0</text>
+          <text x="-2" y="78" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="end">0.5</text>
+          <text x="-2" y="155" font-size="8" fill="rgba(255,255,255,0.30)" font-family="monospace" text-anchor="end">0.0</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes-wrap">
+    <button class="notes-toggle" onclick="toggleNotes()">
+      <span>Model notes — equations, assumptions, what this shows and does not show</span>
+      <span id="notesCaret">▸</span>
+    </button>
+    <div class="notes-body" id="notesBody">
+      <p><strong>Quadratic lock-in: α_eff = α(1+κP²).</strong>
+        The implemented form: <em>α_eff = α × (1 + κ × P²)</em> — quadratic lock-in, so pressure accelerates steeply as P approaches 1. At κ=0.5, P=0.5: α_eff = 1.125×α. At P=0.9: α_eff = 1.405×α. At P→1: α_eff = α(1+κ) and stays there. The system is most destructive at peak performance. α_eff is coupled into both P growth and erosion — symmetrically.
+      </p>
+      <p><strong>Proxy gravity: γ makes intervention costly.</strong>
+        Maintaining artificial proxies (engagement metrics, RLHF reward, approval ratings) requires constant active effort: <em>dP = α_eff×S×(1−P)×V×dt − γ×P×dt</em>. At γ=0.05 (default): P decays at 5% per time unit without active maintenance. When the intervention fires and α drops 40%, the map sags immediately — the user watches the green corrected-V trajectory diverge from a simultaneously declining P. This is the alignment dilemma made visible: saving the territory (V stabilizes) requires accepting a hit to the localized performance metric (P falls). The cost of correction is no longer hidden.
+      </p>
+      <p><strong>Correction trigger on D_base — internal degradation detection, not completion recognition.</strong>
+        The intervention triggers when <em>D_base &lt; D₀ × 0.94</em> — when the agent detects that 6% of its initial modeling depth has been consumed by its own optimization intensity (ε × α × S). D_base is a purely internal quantity with no V component: the agent is monitoring its own structural degradation, not the state of the territory.
+      </p>
+      <p>The trigger is fully internal — but internal monitoring is not sufficient for safety. The proxy objective contains no representation of completion: no condition under which further optimization correctly halts. The D_base monitor detects that the agent's modeling capacity is failing; it does not represent that the objective has been achieved. A system can detect it is failing without any representation of what completion would look like. As D_base erodes, the system loses not only gradient accuracy but the capacity to know when optimization should cease.
+      </p>
+      <p>The architectural distinction matters: the proxy objective is the reward function; the D_base monitor is an out-of-band structural override — analogous to an internal constitutional override — a structural capacity distinct from the primary optimization policy, whose function is to detect degradation of the modeling layer rather than to evaluate whether the objective has been achieved. The article distinguishes between an agent that stops because it achieved its goal (objective completion) and an agent that stops because its structural machinery is failing (structural halting). This simulation models the latter. Safety cannot be derived from the metric being optimized. It must come from the structural layer that oversees it.
+      </p>
+      <p><strong>P_eq(t) — equilibrium attractor · stochastic noise · unified engine.</strong>
+        Setting dP/dt=0 gives <em>P_eq(t) = α_eff·S·V(t) / (α_eff·S·V(t) + γ)</em> — a self-referential coupled equilibrium (α_eff depends on P), not a hard ceiling. P is attracted toward it and can overshoot during rapid V collapse. When V collapses fast, P_eq(t) crashes toward 0 while P(t) bleeds slowly via −γP: the map outlives the territory. The dashed curve on the chart tracks this. The gap between P and P_eq during collapse is not merely visual: it shows the system continuing to push past the point where its own equilibrium has already collapsed — the knife sentence made geometric. The regime strip below shows the exact moment the vector field flips — the Inner Crossing of Part 3 as a measurable coordinate. Stochastic noise: dV += (prng()−0.5)×0.002×dt via injectable PRNG — live sim uses Math.random; tests inject a seeded LCG (seed=42) into the same simulate() function. Visual sweeps and phase map use deterministic per-cell seeded runs. Tests validate the actual live equations, not a copy.
+      </p>
+      <p>When correction is active, D_base rebuilds: <em>dD_base += K_REBUILD × (1−D_base) × D_base × V × dt</em>. The rebuild requires nonzero D_base × V — once both near zero, correction cannot restart. The five narrative arcs: <em>Engagement</em> — unstoppable, correction fires after absorption; <em>RLHF</em> — correction detects the problem early but S×α_eff is too large, collapses regardless; <em>Default</em> — correction delays collapse from t=8.5 to t=17.5 (partial rescue that ultimately fails — the "failed rescue" scenario); <em>Near Rescue</em> — intervention at t=5.1 saves V to ~0.58 (genuine rescue); <em>Falsification</em> — stable, D_base barely erodes.
+      </p>
+      <p><strong>Counterfactual and causal isolation.</strong>
+        The D_eff=1 counterfactual (toggle above) runs the same simulation with modeling capacity permanently locked at its maximum. The erosion equation is <em>δ × α_eff × S × (1−D_eff)</em>: when D_eff=1, erosion algebraically vanishes. This is the formal definition of depth within this framework — D is precisely the fraction of optimization capacity correctly routed away from substrate-consuming pathways, because higher resolution allows the system to distinguish between the signal of success and the physical conditions that generate it. Without that discriminability, the system cannot route force away from what it depends on; it can only follow the signal. When D=1, force is perfectly routed and erosion is zero not by coincidence but by definition.
+      </p>
+      <p>This establishes the causal triangle: optimization pressure alone does not produce collapse; imperfect representation alone does not produce collapse. Collapse emerges from their interaction. Even under maximum α_eff and maximum S, the system does not collapse with perfect modeling — proving that proxy decoupling is a representation failure, not a force failure. No additional control mechanism operating on P alone can restore stability once modeling capacity degrades. Stability requires preserving the system's capacity to correctly represent what it is optimizing.
+      </p>
+      <p><strong>Collapse condition and governing ratio.</strong>
+        The live metric displays the instantaneous collapse condition: <em>δ×α_eff×S×(1−D_eff) vs ρ×D_eff×(1−V)</em>. When the left side exceeds the right, erosion dominates recovery regardless of system intent. Ψ = S/D_eff does not directly govern dynamics in this model — it is a sufficient statistic of the governing variables, useful as a compression of the system's state rather than a control parameter. The regime badge shows the terminal state; the strip shows the full crossing history. The cwThresh = δαS/(ρ+δαS) line in the D_eff sub-chart is derived under the approximation V ≈ constant (local linearization at V=1). The exact crossing depends on V(t), making cwThresh a useful structural indicator but not a sharp threshold — the regime strip and badge use the full ρ·D_eff·(1−V) recovery term from the actual equations.
+      </p>
+      <p><strong>Modeling assumptions — stated explicitly.</strong>
+        (1) D_base erodes linearly in α × S, independently of V. (2) D_eff = D_base × V. (3) Recovery = ρ × D_eff × (1−V) — always active; vanishes naturally as D_eff→0 when V→0. (4) Erosion = δ × α_eff × S × (1−D_eff). (5) Proxy growth = α_eff × S × (1−P) × V. (6) Proxy decay = γ × P. (7) α_eff = α(1+κP²), capped at 3α. The cap prevents runaway feedback that would distort the visualization without changing qualitative behavior. The structural dynamics are invariant to this cap across the full parameter space exposed in the UI: collapse still occurs, and stable regimes remain stable, regardless of whether the cap is 3α, 4α, or removed. The verification suite confirms this. (8) D_base rebuild = K_REBUILD × (1−D_base) × D_eff. (9) Correction trigger: D_base &lt; D₀ × 0.94, with τ-step delay before activation. (10) Stochastic: dV += uniform(−0.002, +0.002) × dt — amplitude is 0.002, negligible relative to typical erosion/recovery magnitudes (~0.01–0.10). The simulation is effectively deterministic; noise is included to demonstrate that qualitative behavior is not fragile to initial conditions, not to model stochastic dynamics. (11) Absorbing state: no hard switch. The equations run continuously — α_eff, erosion, and recovery follow the same laws below θ as above it. As V→0, D_eff = D_base×V→0, recovery = ρ·D_eff·(1−V)→0 naturally, proxy starvation arrests P growth, and erosion continues until V=0. The irrecoverability is derived from the equations, not enforced by a threshold rule. absorbT records when V first crosses θ for the display layer; it signals entry into the absorbing regime, after which V continues toward 0 under the same equations. (12) D_eff = D_base × V: multiplicative coupling that induces compounding fragility. All functional forms are motivated by the article's qualitative claims, not empirical fitting. V(t) is treated here as a scalar state variable. The article defines V(t) as a composite of three coupled capacities — signal fidelity, dynamic range, and recovery capacity — forming an equivalence class over configurations that share the functional property of preserving gradient discriminability. The scalar approximation is a simulation convenience. The composite nature is functionally instantiated through P_eq(t): as V collapses, the equilibrium attractor collapses with it, explicitly modeling the loss of signal fidelity — the localized metric retains high value through algorithmic inertia — the same dynamic by which corporate KPIs and engagement metrics coast on momentum long after the conditions justifying them have deteriorated. P does not actively register success; its growth term is dying (multiplied by V→0) and it bleeds slowly via gravity alone. The structural dynamics (directional degradation, threshold crossing, irrecoverability) hold under the composite structure.
+      </p>
+      <p><strong>Model scope and structural boundaries.</strong>
+        This simulation isolates the minimal structure sufficient to produce proxy decoupling: an optimization objective without a stopping condition, modeling capacity that erodes under optimization pressure, and a feedback loop between the two. Within this simulation's minimal structure and exposed parameter space, collapse is robust once the full erosion/recovery balance enters the degraded-depth regime and no correction changes the trajectory. The displayed cwThresh is a structural indicator, not a sharp theorem-level threshold. This is a statement about the toy's defined model class, not a closed claim about the full framework: the formal absorbing-state equivalence between V(t) collapse and substrate collapse remains open [OP2]. Within these equations, a proxy objective without an internal correction or halting condition can destroy the evaluative capacity it depends on under sufficient optimization pressure. No additional mechanisms are required within this structure; the failure arises from the interaction of optimization pressure and imperfect representation alone.
+      </p>
+      <p>Three phenomena the article addresses are outside this scope by design. <strong>Sufficiency failure dynamics:</strong> the second failure mode — optimization continuing past gradient resolution, disturbing restorative states through saturation rather than proxy pursuit — is not directly simulated here. <em>Both directions are treated as V(t)-degrading feedback patterns, but only proxy decoupling is directly simulated here. Different mechanisms; parallel structural pressure — formal absorbing-state equivalence remains open under OP2.</em> Whether proxy-decoupling collapse and substrate collapse share the same formal absorbing-state properties is the series' central open problem [OP2]; this simulation illustrates the analogous feedback structure, not the resolved equivalence. Its structural precondition (an objective without an internally representable stopping condition) is present here; the correction mechanism makes the same architectural distinction (detecting degradation ≠ representing completion). The saturation mechanism, dynamic range clipping, refractory period, and path-asymmetry of recovery require different instrumentation. <strong>Hysteresis:</strong> the article establishes that the path out of degraded V(t) requires something structurally different from reversing the path in. The correction mechanism here is partially reversible by design; full hysteresis requires a refractory period structure this toy does not model. <strong>Multi-agent dynamics:</strong> the framework identifies as a natural extension the coordination challenges when multiple agents disagree about what constitutes gradient resolution. This simulation is a strict single-agent baseline. Multi-agent extensions strengthen rather than weaken the result: competitive pressure accelerates the dynamics without changing their direction, and coordination failures under shared V introduce additional pathways to the same absorbing regime. The structural analog overlay is a mapping, not a proof of isomorphism — the Technical Companion provides the formal sketch.
+      </p>
+      <p><strong>Connection to RLHF (Article 2 §"What RLHF does and doesn't do").</strong>
+        In Article 2's application to RLHF: P(t) in this simulation corresponds to the expressed preference signal RLHF optimizes; V(t) corresponds to the underlying capacity expressed preference is supposed to track. The structural claim is that under sufficient optimization pressure, the gap between P and V grows in the direction of the optimization — the system finds and exploits the divergence between what evaluators say they prefer in the moment and what actually preserves their capacity for preferred states over time. The RLHF preset illustrates parameter values consistent with this dynamic (high α, high κ encoding preference-signal self-amplification, low D₀ encoding absence of a proxy-divergence detection mechanism). This is an illustrative structural pattern, not an empirical placement of any system. Article 2's RLHF critique has two directions: this simulation directly models the <em>proxy decoupling</em> direction. The <em>sufficiency failure</em> direction — completion recognition present as a representational capacity without governing default policy — is not modeled here. That direction requires separate instrumentation and is the subject of the controlled replication described in Article 2 footnote 2 and the Alignment Measurement Protocol.
+      </p>
+    </div>
+  </div>
+  <details style="border:1px solid var(--border2);border-radius:3px;overflow:hidden;margin-top:0">
+    <summary style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:var(--surface);cursor:pointer;list-style:none;user-select:none;">
+      <div>
+        <div style="font-size:9px;color:var(--text3);letter-spacing:.11em;text-transform:uppercase;font-weight:500">Verification suite</div>
+        <div style="font-size:9px;color:var(--text3);font-style:italic;margin-top:2px">Confirms equations behave as documented. Click to expand.</div>
+      </div>
+      <button id="testBtn" onclick="event.preventDefault(); runTests()" style="font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;padding:5px 12px;border-radius:2px;cursor:pointer;border:1px solid var(--vtb);color:var(--vt);background:var(--vtd);white-space:nowrap;flex-shrink:0;margin-left:12px">Run tests</button>
+    </summary>
+    <div id="testResults" style="display:none;border-top:1px solid var(--border);padding:10px 14px;background:var(--surface)"></div>
+  </details>
+
+</div><!-- /chart-col -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<div class="shell" style="padding-top:0;padding-bottom:40px;">
+  <div style="margin-top:20px;padding:10px 14px;border-left:2px solid var(--text3);font-style:italic;font-family:var(--serif);font-size:12px;color:var(--text3);line-height:1.75;max-width:660px;">
+    "A model that becomes harder to correct precisely because optimization has followed the drift — whose errors are self-reinforcing because the system's policy updates are conditioned on the degraded state itself — is a structural constraint. Part 2 develops the argument that both failure modes satisfy this condition."
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════
+   SVG: Main viewBox 0 0 720 280  MY1=250 MCH=240
+        D_eff viewBox 0 0 720 120  DY1=100 DCH=90
+        Both: X0=48 X1=710 CW=662
+════════════════════════════════════════════════════ */
+const X0=48, SVG_CW=662, MY1=250, MCH=240, DY1=100, DCH=90;
+
+let showCF=false, showDeff=true, showCorr=false, showIso=false;
+let simRes=null, cfRes=null, corrRes=null;
+let schedTimer=null;
+let userInteracted=false;  // Prevent ruin on initial load
+
+/* ── PRESETS ── */
+const PRESETS={
+  default:       {delta:0.060,rho:0.040,alpha:1.2,kappa:0.50,gamma:0.05,tau:0,scope:1.0,depth:0.20,theta:0.25,steps:200,eps:0.010},
+  engagement:    {delta:0.130,rho:0.015,alpha:2.5,kappa:0.50,gamma:0.05,tau:0,scope:2.0,depth:0.10,theta:0.25,steps:150,eps:0.010},
+  rlhf:          {delta:0.045,rho:0.050,alpha:1.8,kappa:0.50,gamma:0.05,tau:0,scope:2.0,depth:0.35,theta:0.20,steps:300,eps:0.010},
+  highdepth:     {delta:0.060,rho:0.100,alpha:1.5,kappa:0.30,gamma:0.02,tau:0,scope:1.2,depth:0.95,theta:0.20,steps:300,eps:0.000},
+  nearrescue:    {delta:0.045,rho:0.040,alpha:1.2,kappa:0.50,gamma:0.05,tau:0,scope:1.0,depth:0.30,theta:0.15,steps:300,eps:0.010},
+  falsification: {delta:0.030,rho:0.150,alpha:0.8,kappa:0.20,gamma:0.03,tau:0,scope:0.8,depth:0.85,theta:0.15,steps:500,eps:0.010},
+};
+const PRESET_IDS={default:'pDefault',engagement:'pEngagement',rlhf:'pRLHF',highdepth:'pHighdepth',nearrescue:'pNearrescue',falsification:'pFalsification'};
+
+function params(){
+  return{
+    delta:+document.getElementById('sDelta').value,
+    rho:  +document.getElementById('sRho').value,
+    alpha:+document.getElementById('sAlpha').value,
+    kappa:+document.getElementById('sKappa').value,
+    gamma:+document.getElementById('sGamma').value,
+    tau:  +document.getElementById('sTau').value,
+    scope:+document.getElementById('sScope').value,
+    depth:+document.getElementById('sDepth').value,
+    theta:+document.getElementById('sTheta').value,
+    steps:+document.getElementById('sSteps').value,
+    eps:  +document.getElementById('sEps').value,
+  };
+}
+function cwFor(p){
+  const x=p.delta*p.alpha*p.scope;
+  return Math.max(0.02,Math.min(0.98,x/(p.rho+x)));
+}
+function onParam(){
+  const p=params();
+  document.getElementById('vDelta').textContent=p.delta.toFixed(3);
+  document.getElementById('vRho').textContent  =p.rho.toFixed(3);
+  document.getElementById('vAlpha').textContent=p.alpha.toFixed(2);
+  document.getElementById('vKappa').textContent=p.kappa.toFixed(2);
+  document.getElementById('vGamma').textContent=p.gamma.toFixed(3);
+  document.getElementById('vTau').textContent  =p.tau.toFixed(1)+'t';
+  document.getElementById('vScope').textContent=p.scope.toFixed(1);
+  document.getElementById('vDepth').textContent=p.depth.toFixed(2);
+  document.getElementById('vTheta').textContent=p.theta.toFixed(2);
+  document.getElementById('vSteps').textContent=p.steps;
+  document.getElementById('vEps').textContent  =p.eps.toFixed(3);
+  document.getElementById('psi0Val').textContent=(p.scope/Math.max(p.depth,0.001)).toFixed(2);
+  document.getElementById('cwThreshVal').textContent=cwFor(p).toFixed(3);
+  // α_eff at P=1: α(1+κ·1²) = α(1+κ)
+  document.getElementById('alphaEffPeak').textContent='≈'+(p.alpha*(1+p.kappa)).toFixed(2)+'  (at P→1)';
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+}
+function sched(){
+  if(schedTimer) clearTimeout(schedTimer);
+  schedTimer=setTimeout(runSim,65);
+}
+function setPreset(name){
+  const p=PRESETS[name]; if(!p) return;
+  const m={sDelta:'delta',sRho:'rho',sAlpha:'alpha',sKappa:'kappa',sGamma:'gamma',sTau:'tau',sScope:'scope',sDepth:'depth',sTheta:'theta',sSteps:'steps',sEps:'eps'};
+  Object.entries(m).forEach(([id,k])=>{ document.getElementById(id).value=p[k]; });
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+  const id=PRESET_IDS[name]; if(id) document.getElementById(id).classList.add('active');
+  userInteracted=true;
+  onParam(); runSim();
+}
+function resetDefaults(){ userInteracted=false; document.body.classList.remove('ruin'); setPreset('default'); }
+
+/* ════════════════════════════════════════════════════
+   SIMULATION ENGINE
+
+   Key equations:
+   D_base: independent state
+     dD_base = −ε × α × S × D_base × dt     [α erodes modeling capacity]
+     +K_REBUILD × (1−D_base) × D_eff × dt   [correction rebuilds D]
+
+   D_eff = D_base × V                         [meta-decay on top]
+
+   Endogenized α — quadratic lock-in:
+     α_eff = α × (1 + κ × P²)               [escalates steeply as proxy saturates]
+     → at P=1: α_eff = α(1+κ), stays there
+     → quadratic form: pressure accelerates late-stage, models lock-in
+
+   Symmetric S + fully coupled α_eff:
+     dP = α_eff × S × (1−P) × V × dt − γ × P × dt   [proxy gravity]
+     erosion = δ × α_eff × S × (1−D_eff) × dt
+     → proxy requires active maintenance; when α drops, P sags
+     → the cost of intervention is visible on the map
+
+   Recovery requires modeling capacity:
+     recovery = ρ × D_eff × (1−V) × dt  (no threshold gate — vanishes naturally as V→0)
+
+   Stochastic noise via injected prng:
+     dV += uniform(−noise, +noise) × dt   [structural collapse, not fragile trajectory]
+
+   Correction trigger — D_base only (fixes omniscience paradox):
+     fires when D_base < D₀ × CORR_THRESH_FRAC (default 0.94)
+     D_base is a pure internal state: no V component
+     → agent monitors its own algorithmic depth, not territory health
+     → agent monitors its own algorithmic depth — analogous to Part 3's D measurement target, but internal to the simulation
+
+   Counterfactual: fixedDeff=1.0 → erosion=0 always
+════════════════════════════════════════════════════ */
+const K_REBUILD = 1.0;
+const CORR_THRESH_FRAC = 0.94;  // D_base trigger: 6% erosion of modeling depth
+const NOISE_AMP = 0.002;         // stochastic amplitude per unit time
+
+// ── UNIFIED SIMULATION ENGINE ──────────────────────────────────
+// Single source of truth. prng injectable: Math.random for live, seeded LCG for tests.
+function simulate(p, fixedDeff, corrOn, prng){
+  if(!prng) prng = Math.random;
+  const dt=0.1, N=p.steps, D0=p.depth, S=p.scope, theta=p.theta;
+  const cwThresh=cwFor(p);
+  const corrThresh_Dbase = D0 * CORR_THRESH_FRAC;
+  const tauSteps = Math.round(((p.tau)||0) / dt);  // response latency in steps
+  let P=0.15, V=1.0, D_base=D0;
+  const ts=[],Vs=[],Ps=[],Ds=[],Qs=[],Ceils=[];
+  let crossoverT=null,absorbT=null,cwT=null,corrT=null,correcting=false;
+  let triggerStep=-1;  // step when D_base threshold first crossed (for τ delay)
+
+  for(let i=0;i<=N;i++){
+    const t=i*dt;
+
+    let Deff;
+    if(fixedDeff!==undefined){
+      Deff=fixedDeff;
+    } else {
+      const dErode  = p.eps*p.alpha*S*D_base*dt;
+      const dRebuild= correcting ? K_REBUILD*(1-D_base)*D_base*V*dt : 0;
+      D_base=Math.max(0,Math.min(1,D_base-dErode+dRebuild));
+      Deff=D_base*V;
+    }
+    const Psi=S/Math.max(Deff,0.001);
+    ts.push(t);Vs.push(V);Ps.push(P);Ds.push(Deff);Qs.push(Math.min(Psi,10));
+    // Equilibrium attractor: P_eq(t) = α_eff·S·V/(α_eff·S·V+γ)
+    const aEff_cur = correcting ? p.alpha*0.60 : Math.min(p.alpha*(1+p.kappa*P*P),p.alpha*3.0);
+    const cDenom = aEff_cur*S*Math.max(V,0)+p.gamma;
+    Ceils.push(cDenom>0 ? aEff_cur*S*Math.max(V,0)/cDenom : 0);
+
+    // τ hesitation: detect crossing, then wait tauSteps before activating correction
+    if(corrOn&&!correcting&&fixedDeff===undefined&&D_base<corrThresh_Dbase&&triggerStep<0) triggerStep=i;
+    if(corrOn&&!correcting&&triggerStep>=0&&(i-triggerStep)>=tauSteps){ correcting=true; corrT=t; }
+
+    // Fully endogenous dynamics — no hard switches at absorption.
+    // α_eff, recovery, and erosion follow the same equations throughout.
+    // As V→0: D_eff = D_base×V→0, recovery = ρ·D_eff·(1−V)→0 naturally,
+    // proxy growth stalls via V starvation, V continues falling under erosion.
+    // The absorbing state is an emergent attractor — irrecoverability is derived,
+    // not enforced. absorbT records when V first crosses θ for display purposes only.
+    const alpha_eff = correcting
+      ? p.alpha*0.60
+      : Math.min(p.alpha*(1+p.kappa*P*P), p.alpha*3.0);
+
+    const dP_growth = alpha_eff*S*(1-P)*Math.max(V,0)*dt;
+    const dP_decay  = p.gamma*P*dt;
+    P=Math.min(1,Math.max(0, P+dP_growth-dP_decay));
+
+    const erosion  = p.delta*alpha_eff*S*(1-Deff)*dt;
+    // Recovery = ρ·D_eff·(1−V): D_eff→0 as V→0, so recovery→0 without gating.
+    const recovery = p.rho*Deff*(1-V)*dt;
+    const dV_noise = fixedDeff===undefined ? (prng()-0.5)*NOISE_AMP*dt : 0;
+    V=Math.max(0,Math.min(1,V+recovery-erosion+dV_noise));
+
+    if(crossoverT===null&&V<0.45&&(Ps[Ps.length-1]-V)>0.25) crossoverT=t;
+    if(absorbT===null&&V<=theta) absorbT=t;
+    if(cwT===null&&fixedDeff===undefined&&Deff<cwThresh) cwT=t;
+  }
+  return{ts,Vs,Ps,Ds,Qs,Ceils,crossoverT,absorbT,cwT,corrT,cwThresh};
+}
+
+/* ── SVG HELPERS ── */
+function pp(c){ if(!c.length)return''; return 'M'+c[0][0].toFixed(1)+','+c[0][1].toFixed(1)+c.slice(1).map(([x,y])=>' L'+x.toFixed(1)+','+y.toFixed(1)).join(''); }
+function mp(t,v,maxT){ return[X0+(t/maxT)*SVG_CW, MY1-v*MCH]; }
+function dp(t,v,maxT){ return[X0+(t/maxT)*SVG_CW, DY1-v*DCH]; }
+function gapPath(ts,Vs,Ps,maxT){ const f=[],b=[]; for(let i=0;i<ts.length;i++){ if(Ps[i]>Vs[i]){ const x=(X0+(ts[i]/maxT)*SVG_CW).toFixed(1); f.push(x+','+(MY1-Ps[i]*MCH).toFixed(1)); b.unshift(x+','+(MY1-Vs[i]*MCH).toFixed(1)); } } return f.length?'M'+f[0]+' L'+f.slice(1).join(' L')+' L'+b.join(' L')+'Z':''; }
+function defPath(ts,Vs,Ds,maxT){ const f=[],b=[]; for(let i=0;i<ts.length;i++){ const x=(X0+(ts[i]/maxT)*SVG_CW).toFixed(1); f.push(x+','+(DY1-Vs[i]*DCH).toFixed(1)); b.unshift(x+','+(DY1-Ds[i]*DCH).toFixed(1)); } return f.length?'M'+f[0]+' L'+f.slice(1).join(' L')+' L'+b.join(' L')+'Z':''; }
+function isoD(ts,Qs,maxT,p){ const Psi0=p.scope/Math.max(p.depth,0.001),sc=Math.max(4,Psi0); return pp(ts.map((t,i)=>mp(t,Math.max(0,1-(Qs[i]-Psi0)/sc),maxT))); }
+function xL(el,ts,y){ el.innerHTML=''; const maxT=ts[ts.length-1],n=Math.min(8,Math.floor(maxT/5)); for(let i=0;i<=n;i++){ const t=(i/n)*maxT,x=X0+(t/maxT)*SVG_CW; const lb=document.createElementNS('http://www.w3.org/2000/svg','text'); lb.setAttribute('x',x);lb.setAttribute('y',y);lb.setAttribute('font-size','9');lb.setAttribute('fill','rgba(255,255,255,0.32)');lb.setAttribute('font-family','monospace');lb.setAttribute('text-anchor','middle');lb.textContent=t.toFixed(0);el.appendChild(lb); } }
+
+/* ── RENDER ── */
+function renderMain(res,cf,corr){
+  const{ts,Vs,Ps,Ds,Qs,Ceils,crossoverT,absorbT,cwT,corrT}=res;
+  const maxT=ts[ts.length-1],p=params();
+  const ty=(MY1-p.theta*MCH).toFixed(1);
+  document.getElementById('mThetaLine').setAttribute('y1',ty);document.getElementById('mThetaLine').setAttribute('y2',ty);
+  document.getElementById('mThetaLbl').setAttribute('y',(+ty+3).toFixed(0));
+
+  // Equilibrium attractor curve: P_eq(t) = α_eff·S·V(t)/(α_eff·S·V(t)+γ)
+  // P is attracted toward this. Falls as V collapses. P can overshoot above during rapid V collapse.
+  const ceilPath = pp(ts.map((t,i)=>mp(t,Ceils[i],maxT)));
+  document.getElementById('pCeilPath').setAttribute('d',ceilPath);
+  // Position attractor label at final value
+  const ceilFinal = Ceils[Ceils.length-1];
+  const ceilLblY = (MY1-ceilFinal*MCH-2).toFixed(0);
+  document.getElementById('pCeilLbl').setAttribute('y',ceilLblY);
+
+  document.getElementById('pathV').setAttribute('d',pp(ts.map((t,i)=>mp(t,Vs[i],maxT))));
+  document.getElementById('pathP').setAttribute('d',pp(ts.map((t,i)=>mp(t,Ps[i],maxT))));
+  document.getElementById('gapFill').setAttribute('d',gapPath(ts,Vs,Ps,maxT));
+  const setEl=(id,d,op,show)=>{ const el=document.getElementById(id); el.setAttribute('d',d); el.style.opacity=op; if(show!==null) document.getElementById(show).style.display=op==='1'?'flex':'none'; };
+  setEl('cfPath',  cf&&showCF  ?pp(cf.ts.map((t,i)=>mp(t,cf.Vs[i],maxT)))  :'','cf'&&showCF?'1':'0','cfLeg');
+  if(cf&&showCF){document.getElementById('cfPath').setAttribute('d',pp(cf.ts.map((t,i)=>mp(t,cf.Vs[i],maxT))));document.getElementById('cfPath').style.opacity='1';document.getElementById('cfLeg').style.display='flex';}
+  else{document.getElementById('cfPath').setAttribute('d','');document.getElementById('cfPath').style.opacity='0';document.getElementById('cfLeg').style.display='none';}
+  if(corr&&showCorr){document.getElementById('corrPath').setAttribute('d',pp(corr.ts.map((t,i)=>mp(t,corr.Vs[i],maxT))));document.getElementById('corrPath').style.opacity='1';document.getElementById('corrLeg').style.display='flex';document.getElementById('corrTLegend').style.display='flex';}
+  else{document.getElementById('corrPath').setAttribute('d','');document.getElementById('corrPath').style.opacity='0';document.getElementById('corrLeg').style.display='none';document.getElementById('corrTLegend').style.display='none';}
+  if(showIso){document.getElementById('isoPath').setAttribute('d',isoD(ts,Qs,maxT,p));document.getElementById('isoPath').style.opacity='1';document.getElementById('isoLeg').style.display='flex';}
+  else{document.getElementById('isoPath').setAttribute('d','');document.getElementById('isoPath').style.opacity='0';document.getElementById('isoLeg').style.display='none';}
+  function mk(lid,x,st,txtId,fill){ document.getElementById(lid).setAttribute('x1',x);document.getElementById(lid).setAttribute('x2',x);document.getElementById(lid).style.stroke=st;document.getElementById(txtId).setAttribute('x',(+x+3).toFixed(0));document.getElementById(txtId).style.fill=fill; }
+  if(cwT!==null){ const cx=(X0+(cwT/maxT)*SVG_CW).toFixed(1); document.getElementById('cwLine').setAttribute('x1',cx);document.getElementById('cwLine').setAttribute('x2',cx);document.getElementById('cwLine').style.stroke='rgba(232,160,48,0.42)';document.getElementById('cwLbl').setAttribute('x',(+cx+3).toFixed(0));document.getElementById('cwLbl').style.fill='rgba(232,160,48,0.65)'; }
+  else{document.getElementById('cwLine').style.stroke='rgba(232,160,48,0)';document.getElementById('cwLbl').style.fill='rgba(232,160,48,0)';}
+  // Intervention tick (corrT from correction sim)
+  const corrT_val = corr ? corr.corrT : null;
+  if(corrT_val!==null&&showCorr){
+    const ix=(X0+(corrT_val/maxT)*SVG_CW).toFixed(1);
+    document.getElementById('corrTLine').setAttribute('x1',ix);document.getElementById('corrTLine').setAttribute('x2',ix);document.getElementById('corrTLine').style.stroke='rgba(96,224,144,0.50)';
+    document.getElementById('corrTLbl').setAttribute('x',(+ix+3).toFixed(0));document.getElementById('corrTLbl').style.fill='rgba(96,224,144,0.72)';
+  } else {
+    document.getElementById('corrTLine').style.stroke='rgba(96,224,144,0)';document.getElementById('corrTLbl').style.fill='rgba(96,224,144,0)';
+  }
+  if(crossoverT!==null){ const cx=(X0+(crossoverT/maxT)*SVG_CW).toFixed(1); mk('crossLine',cx,'rgba(232,160,48,0.60)','crossLbl','rgba(232,160,48,0.82)'); }
+  else{document.getElementById('crossLine').style.stroke='rgba(232,160,48,0)';document.getElementById('crossLbl').style.fill='rgba(232,160,48,0)';}
+  if(absorbT!==null){ const ax=(X0+(absorbT/maxT)*SVG_CW).toFixed(1); mk('absorbLine',ax,'rgba(224,88,80,0.60)','absorbLbl','rgba(224,88,80,0.82)'); }
+  else{document.getElementById('absorbLine').style.stroke='rgba(224,88,80,0)';document.getElementById('absorbLbl').style.fill='rgba(224,88,80,0)';}
+  xL(document.getElementById('mXLabels'),ts,264);
+
+  // Regime history strip: each segment colored by erosion vs recovery at that step
+  const strip = document.getElementById('regimeStrip');
+  const sw = 662 / ts.length;
+  let stripHtml = '';
+  for(let i=0;i<ts.length;i++){
+    const erosion_i = p.delta * Math.min(p.alpha*(1+p.kappa*Ps[i]*Ps[i]),p.alpha*3) * p.scope * (1-Ds[i]);
+    const recovery_i = p.rho * Ds[i] * (1 - Vs[i]);
+    const col = erosion_i > recovery_i ? 'rgba(224,88,80,0.70)' : 'rgba(64,192,128,0.60)';
+    stripHtml += `<rect x="${(i*sw).toFixed(1)}" y="0" width="${(sw+0.5).toFixed(1)}" height="6" fill="${col}"/>`;
+  }
+  strip.innerHTML = stripHtml;
+}
+
+function renderDeff(res){
+  const{ts,Vs,Ds,cwThresh}=res;
+  const maxT=ts[ts.length-1],p=params();
+  const d0y=(DY1-p.depth*DCH).toFixed(1);
+  document.getElementById('d0RefLine').setAttribute('y1',d0y);document.getElementById('d0RefLine').setAttribute('y2',d0y);document.getElementById('d0RefLbl').setAttribute('y',(+d0y-2).toFixed(0));
+  const cwy=(DY1-cwThresh*DCH).toFixed(1);
+  document.getElementById('cwThreshLine').setAttribute('y1',cwy);document.getElementById('cwThreshLine').setAttribute('y2',cwy);document.getElementById('cwThreshLbl').setAttribute('y',(+cwy-2).toFixed(0));
+  document.getElementById('deficitFill').setAttribute('d',defPath(ts,Vs,Ds,maxT));
+  document.getElementById('deffVRef').setAttribute('d',pp(ts.map((t,i)=>dp(t,Vs[i],maxT))));
+  document.getElementById('pathDeff').setAttribute('d',pp(ts.map((t,i)=>dp(t,Ds[i],maxT))));
+  xL(document.getElementById('deffXLbls'),ts,114);
+}
+
+function updateMetrics(res,cf){
+  const{Vs,Ps,Ds,Qs,crossoverT,absorbT,cwT,cwThresh}=res;
+  const p=params();
+  const vF=Vs[Vs.length-1],pF=Ps[Ps.length-1],dF=Ds[Ds.length-1],qF=Qs[Qs.length-1];
+  document.getElementById('mVfinal').textContent=(vF*100).toFixed(1)+'%';
+  document.getElementById('mPfinal').textContent=(pF*100).toFixed(1)+'%';
+  const mPs=document.getElementById('mPsub');
+  if(vF<0.05&&pF<0.98) mPs.textContent='proxy frozen · starvation';
+  else mPs.textContent='agent\'s model';
+  const mP=document.getElementById('mPsi');
+  mP.textContent=qF>=9.9?'∞':qF.toFixed(2);
+  mP.className='metric-val '+(qF>5?'c-absorb':qF>2?'c-psi':'c-stable');
+  // Regime badge: instantaneous terminal state — the strip shows history, badge declares the final mathematical reality
+  const alphaEff = Math.min(p.alpha*(1+p.kappa*pF*pF), p.alpha*3);
+  const erosionRate = p.delta * alphaEff * p.scope * (1-dF);
+  const recovRate   = p.rho * dF * (1 - vF);
+  const collapsingNow = erosionRate > recovRate;
+  document.getElementById('mPsiSub').textContent = collapsingNow
+    ? 'δα_effS(1−D_eff) > ρD_eff(1−V) · erosion dominant'
+    : 'δα_effS(1−D_eff) < ρD_eff(1−V) · recovery dominant';
+  // Badge evaluates the final step — a phase transition is an abrupt topological shift,
+  // not a historical average. The regime strip shows the full trajectory history.
+  const badge = document.getElementById('regimeBadge');
+  if(absorbT!==null){
+    badge.textContent='absorbed'; badge.style.color='var(--absorb)'; badge.style.borderColor='rgba(224,88,80,0.45)'; badge.style.background='rgba(224,88,80,0.06)';
+  } else if(collapsingNow){
+    badge.textContent='erosion dominant'; badge.style.color='var(--absorb)'; badge.style.borderColor='rgba(224,88,80,0.35)'; badge.style.background='rgba(224,88,80,0.04)';
+  } else {
+    badge.textContent='recovery dominant'; badge.style.color='var(--stable)'; badge.style.borderColor='rgba(64,192,128,0.38)'; badge.style.background='rgba(64,192,128,0.04)';
+  }
+  document.getElementById('psiLive').textContent=qF>=9.9?'∞':qF.toFixed(2);
+  const cfVF=cf?cf.Vs[cf.Vs.length-1]:vF;
+  const cost=cfVF-vF;
+  const mC=document.getElementById('mCost');
+  if(cost<0.005){mC.textContent='≈0';mC.className='metric-val c-stable';}
+  else{mC.textContent='−'+(cost*100).toFixed(1)+'%';mC.className='metric-val c-absorb';}
+  if(crossoverT!==null){document.getElementById('mCross').textContent='t='+crossoverT.toFixed(1);document.getElementById('mCrossSub').textContent='step '+(crossoverT/0.1).toFixed(0);}
+  else{document.getElementById('mCross').textContent='none';document.getElementById('mCrossSub').textContent='not reached';}
+  const mE=document.getElementById('mEvent'),mEs=document.getElementById('mEventSub');
+  const alreadyClosed=p.depth<cwThresh;
+  if(absorbT!==null){mE.textContent='t='+absorbT.toFixed(1);mEs.textContent='absorbed';mE.className='metric-val c-absorb';}
+  else if(cwT!==null){mE.textContent='t='+cwT.toFixed(1);mEs.textContent='cw closed';mE.className='metric-val c-vt';}
+  else if(alreadyClosed){mE.textContent='t=0';mEs.textContent='cw: closed at init';mE.className='metric-val c-absorb';}
+  else{mE.textContent='open';mEs.textContent='correctable';mE.className='metric-val c-stable';}
+}
+
+function updatePhase(res){
+  const{crossoverT,absorbT,Ps,Vs}=res;
+  const gap=Ps[Ps.length-1]-Vs[Vs.length-1];
+  const b=document.getElementById('phaseBadge');
+  if(absorbT!==null){b.className='phase-badge absorbed';b.textContent='absorbed';}
+  else if(crossoverT!==null){b.className='phase-badge crossover';b.textContent='crossover';}
+  else if(gap>0.15){b.className='phase-badge decoupling';b.textContent='decoupling';}
+  else{b.className='phase-badge stable';b.textContent='stable';}
+}
+
+function updateAnnotation(res){
+  const{ts,Vs,Ps,Ds,crossoverT,absorbT,cwT,cwThresh}=res;
+  const p=params();
+  const vF=Vs[Vs.length-1],pF=Ps[Ps.length-1],dF=Ds[Ds.length-1];
+  const qF=p.scope/Math.max(dF,0.001),Psi0=p.scope/Math.max(p.depth,0.001);
+  const alreadyClosed=p.depth<cwThresh;
+  const alphaAtP1=(p.alpha*(1+p.kappa)).toFixed(2);
+  // Check if correction actually rescued
+  const corrVF = corrRes ? corrRes.Vs[corrRes.Vs.length-1] : vF;
+  const corrT_val = corrRes ? corrRes.corrT : null;
+  const corrSaved = corrVF > vF + 0.15;
+  const panel=document.getElementById('annotationPanel');
+  let txt='',cls='stable';
+
+  if(absorbT!==null){
+    const pfPct=(pF*100).toFixed(1);
+    const gravStr = p.gamma>0.01 ? ` (proxy gravity γ=${p.gamma.toFixed(3)} pulled P down to ${pfPct}% as pressure dropped)` : '';
+    txt=`V(t) absorbed at t=${absorbT.toFixed(1)}. Map: ${pfPct}%${gravStr}. α_eff locked at ${alphaAtP1} (quadratic κ=${p.kappa}). D_eff: ${dF.toFixed(3)}.${alreadyClosed?' CW closed at initialization (D₀ < cwThresh).':cwT!==null?' CW closed at t='+cwT.toFixed(1)+'.':''}${corrT_val&&showCorr?' D_base monitor fired at t='+corrT_val.toFixed(1)+' — too late to rebuild.':''}`;
+    cls='absorbed';
+  } else if(crossoverT!==null){
+    txt=`Crossover at t=${crossoverT.toFixed(1)}. Map: ${(pF*100).toFixed(1)}%. Territory: ${(vF*100).toFixed(1)}%. Ψ = ${qF.toFixed(2)} (from ${Psi0.toFixed(2)}). α_eff locked at ${alphaAtP1} — quadratic lock-in held pressure at peak even after proxy saturated. ${alreadyClosed?'CW closed before t=0 (D₀ < cwThresh).':cwT!==null?'CW closed at t='+cwT.toFixed(1)+'.':'Correction still possible.'}`;
+    cls='crossover';
+  } else if(pF-vF>0.15){
+    txt=`Decoupling. Map: ${(pF*100).toFixed(1)}%. Territory: ${(vF*100).toFixed(1)}%. Ψ = ${qF.toFixed(2)} (from ${Psi0.toFixed(2)}). cwThresh = ${cwThresh.toFixed(3)}. α_eff at saturation: ${alphaAtP1}. ${alreadyClosed?'D₀ below cwThresh — uncorrectable.':cwT!==null?'CW closed at t='+cwT.toFixed(1)+'.':'Still correctable.'}`;
+    cls='decoupling';
+  } else if(corrSaved&&showCorr){
+    txt=`Near-rescue. Without correction: V collapses and absorbs. D_base monitor detected 6% erosion at t=${corrT_val!==null?corrT_val.toFixed(1):'?'} — agent detected its own modeling depth failing, not V (which it cannot observe). α cut 40%, D_base began rebuilding. V stabilized at ${(corrVF*100).toFixed(1)}%. Map sagged (proxy gravity γ=${p.gamma.toFixed(3)}) — the cost of alignment is visible. The knife edge: paths back exist if D is monitored before the window closes.`;
+    cls='rescue';
+  } else {
+    if(p.delta<=0.001) txt='Decoupling rate near zero — no erosion. Increase δ to observe divergence.';
+    else if(p.depth>=0.85) txt=`D₀=${p.depth.toFixed(2)}, Ψ₀=${Psi0.toFixed(2)}: stable regime. cwThresh=${cwThresh.toFixed(3)}, D₀ above it. α_eff at saturation: ${alphaAtP1}. Framework prediction: stable when D near 1 and D₀ > cwThresh.`;
+    else txt=`Stable. Ψ₀=${Psi0.toFixed(2)}, cwThresh=${cwThresh.toFixed(3)}. ${alreadyClosed?'D₀ below threshold — recovery ineffective.':'D₀ above threshold — correctable.'} Increase S or κ (pressure) to observe the divergence. Near Rescue preset shows the knife edge between these regimes.`;
+  }
+  panel.textContent=txt;
+  panel.className='annotation-panel '+cls;
+}
+
+function updateFalsification(res){
+  const panel=document.getElementById('falsPanel');
+  const{ts,crossoverT,absorbT,cwThresh}=res;
+  const maxT=ts[ts.length-1],p=params();
+  const Psi0=p.scope/Math.max(p.depth,0.001);
+  let hdr='',body='',show=false,hdrCls='confirmed';
+
+  if(p.delta<=0.001){show=false;}
+  else if(crossoverT===null&&absorbT===null){
+    show=true;
+    const isNearRescue=simRes&&corrRes&&Math.abs(corrRes.Vs[corrRes.Vs.length-1]-res.Vs[res.Vs.length-1])>0.10;
+    if(isNearRescue&&showCorr){
+      const corrT_val = corrRes ? corrRes.corrT : null;
+      hdr='◈ Knife-edge regime — intervention changes outcome';
+      body=`Without correction: V collapses and absorbs. With correction toggle active: V stabilizes at ${(corrRes.Vs[corrRes.Vs.length-1]*100).toFixed(1)}%. Ψ₀=${Psi0.toFixed(2)}, cwThresh=${cwThresh.toFixed(3)}.${corrT_val!==null?' Intervention fired at t='+corrT_val.toFixed(1)+' — agent detected D_base erosion (6% of D₀) before the window closed.':''} D_base rebuilt, recovery became viable. This is the article's claim: paths back exist if D (not V) is monitored and acted on before the correction window closes.`;
+      hdrCls='rescue';
+    } else if(p.depth>=0.85){
+      hdr='◎ Stable regime — structural viability demonstrated within this model class';
+      body=`No crossover at D₀=${p.depth.toFixed(2)}, S=${p.scope.toFixed(1)}, Ψ₀=${Psi0.toFixed(2)}, cwThresh=${cwThresh.toFixed(3)}. D₀ above threshold — the framework predicts viability here. Both collapse and stability are expected regimes of the same system; neither alone confirms or falsifies the framework. Within this model class, persistent stability under these parameters would challenge the proxy-decoupling clause and motivate review against the formal falsification conditions stated in the Technical Companion. The VVC is challenged not by observing stability here, but by finding a system with high Ψ (high S, low D), sustained α feedback, and no correction — that achieves persistent stability across extended horizons. That trajectory is structurally unstable under these equations. This simulation directly tests the proxy decoupling clause of the VVC and the structural dependence of stability on modeling depth. Reduce D₀ below 0.75 or raise S to see collapse return.`;
+      hdrCls='stable-r';
+    } else {
+      hdr='◇ Potential challenge candidate — extend horizon';
+      body=`No crossover in T=${maxT.toFixed(0)} at δ=${p.delta.toFixed(3)}, S=${p.scope.toFixed(1)}, D₀=${p.depth.toFixed(2)}, Ψ₀=${Psi0.toFixed(2)}, ρ=${p.rho.toFixed(3)}. Extend to T=500. If no crossover persists: these parameters would challenge the proxy-decoupling clause within this model class and motivate review against the formal falsification conditions stated in the Technical Companion. Record and test across ensemble runs.`;
+      hdrCls='candidate';
+    }
+  } else if(crossoverT!==null){
+    show=true;
+    hdr='◉ Crossover confirmed — model behaves as documented';
+    body=`Crossover at t=${crossoverT.toFixed(1)}, Ψ₀=${Psi0.toFixed(2)}, cwThresh=${cwThresh.toFixed(3)}, κ=${p.kappa.toFixed(2)}. α feedback amplified collapse by self-reinforcing on proxy gains. High ρ alone cannot prevent this: recovery = ρ × D_eff × (1−V) collapses when D_eff collapses.`;
+    hdrCls='confirmed';
+  }
+  if(show){panel.classList.add('on');const h=document.getElementById('falsHdr');h.textContent=hdr;h.className='fals-hdr '+hdrCls;document.getElementById('falsBody').textContent=body;}
+  else{panel.classList.remove('on');}
+}
+
+function toggleNotes(){const b=document.getElementById('notesBody');const o=b.classList.toggle('open');document.getElementById('notesCaret').textContent=o?'▾':'▸';}
+
+function runSim(){
+  const p=params();
+  simRes =simulate(p);
+  cfRes  =simulate(p,1.0);
+  corrRes=simulate(p,undefined,true);
+  renderMain(simRes,cfRes,corrRes);
+  renderDeff(simRes);
+  updateMetrics(simRes,cfRes);
+  updatePhase(simRes);
+  updateAnnotation(simRes);
+  updateFalsification(simRes);
+  updateObservables(simRes);
+  renderSweep();
+  schedulePhaseMap();
+
+  // Ruin: only apply after user has interacted (prevents dark-on-load bug)
+  if(userInteracted&&simRes.absorbT!==null){
+    setTimeout(()=>document.body.classList.add('ruin'),900);
+  } else {
+    document.body.classList.remove('ruin');
+  }
+}
+
+// Observable anchors — qualitative indicators derived from final V(t).
+// These are illustrative monotone mappings, not empirical relationships.
+// They show how the three Article 2 observable anchors co-degrade as V falls.
+function updateObservables(res){
+  const vF = res.Vs[res.Vs.length-1];
+  // Recovery latency: rises as V falls (inverse relationship)
+  const latency = vF > 0.01 ? Math.min(9.9, (1/vF)).toFixed(1)+'×' : '>10×';
+  // Behavioral diversity: narrows as V falls
+  const diversity = (vF * 100).toFixed(0)+'%';
+  // Signal sensitivity: degrades faster than diversity (weaker gradients affected first)
+  const sensitivity = (Math.pow(vF, 1.5) * 100).toFixed(0)+'%';
+  const col = vF > 0.6 ? 'var(--stable)' : vF > 0.35 ? 'var(--vt)' : 'var(--absorb)';
+  const el = (id, val) => {
+    const e = document.getElementById(id);
+    if(e){ e.textContent = val; e.style.color = col; }
+  };
+  el('obsLatency', latency);
+  el('obsDiversity', diversity);
+  el('obsSensitivity', sensitivity);
+}
+
+function toggleCF(){showCF=!showCF;document.getElementById('cfSwitch').classList.toggle('on',showCF);if(simRes)renderMain(simRes,cfRes,corrRes);}
+function toggleDeff(){showDeff=!showDeff;document.getElementById('deffSwitch').classList.toggle('on',showDeff);document.getElementById('deffChartPanel').classList.toggle('sub-hide',!showDeff);}
+function toggleCorr(){showCorr=!showCorr;document.getElementById('corrSwitch').classList.toggle('on',showCorr);if(simRes){renderMain(simRes,cfRes,corrRes);updateMetrics(simRes,cfRes);updatePhase(simRes);updateAnnotation(simRes);updateFalsification(simRes);}}
+function toggleIso(){showIso=!showIso;document.getElementById('isoSwitch').classList.toggle('on',showIso);if(simRes)renderMain(simRes,cfRes,corrRes);}
+function renderPhaseMap(){
+  const p0 = params();
+  const NX=26, NY=21, W=662, H=152;
+  const Smin=0.5, Smax=3.0, Dmin=0.0, Dmax=1.0;
+  const cellW=W/NX, cellH=H/NY;
+  let html='';
+  const regime=[];  // 0=viable, 1=crossover, 2=absorbed
+
+  // Find which grid cell the current (S, D₀) maps to — for badge coherence
+  const curI = Math.round((p0.scope-Smin)/(Smax-Smin)*(NX-1));
+  const curJ = Math.round((Dmax-Math.max(0.01,p0.depth))/(Dmax-Dmin)*(NY-1));
+  const curIc = Math.max(0,Math.min(NX-1,curI));
+  const curJc = Math.max(0,Math.min(NY-1,curJ));
+
+  for(let j=0;j<NY;j++){
+    regime[j]=[];
+    const D0v = Math.max(0.01, Dmax - (j/(NY-1))*(Dmax-Dmin));
+    for(let i=0;i<NX;i++){
+      const Sv = Smin + (i/(NX-1))*(Smax-Smin);
+      const p = Object.assign({}, p0, {scope:Sv, depth:D0v});
+      const r = simulate(p, undefined, false, makeLCG(42+j*1000+i));
+      let fill, reg;
+      if(r.absorbT!==null)         {fill='rgba(224,88,80,0.80)'; reg=2;}
+      else if(r.crossoverT!==null) {fill='rgba(232,160,48,0.72)'; reg=1;}
+      else                         {fill='rgba(64,192,128,0.68)'; reg=0;}
+      regime[j][i]=reg;
+      html+=`<rect x="${(i*cellW).toFixed(1)}" y="${(j*cellH).toFixed(1)}" width="${(cellW+0.6).toFixed(1)}" height="${(cellH+0.6).toFixed(1)}" fill="${fill}"/>`;
+    }
+  }
+
+  // Contour lines between adjacent cells of different regimes
+  let contourHtml='';
+  const lw=1.2;
+  for(let j=0;j<NY;j++){
+    for(let i=0;i<NX;i++){
+      const r0=regime[j][i];
+      const x0=(i*cellW), y0=(j*cellH);
+      if(i<NX-1){
+        const r1=regime[j][i+1];
+        if(r0!==r1){
+          const ex=(x0+cellW).toFixed(1), ey0=y0.toFixed(1), ey1=(y0+cellH).toFixed(1);
+          const isAbsorb=(r0===2||r1===2);
+          const stroke=isAbsorb?'rgba(224,88,80,0.80)':'rgba(232,160,48,0.70)';
+          const da=isAbsorb?'':'3 3';
+          contourHtml+=`<line x1="${ex}" y1="${ey0}" x2="${ex}" y2="${ey1}" stroke="${stroke}" stroke-width="${lw}"${da?` stroke-dasharray="${da}"`:''} />`;
+        }
+      }
+      if(j<NY-1){
+        const r1=regime[j+1][i];
+        if(r0!==r1){
+          const ey=(y0+cellH).toFixed(1), ex0=x0.toFixed(1), ex1=(x0+cellW).toFixed(1);
+          const isAbsorb=(r0===2||r1===2);
+          const stroke=isAbsorb?'rgba(224,88,80,0.80)':'rgba(232,160,48,0.70)';
+          const da=isAbsorb?'':'3 3';
+          contourHtml+=`<line x1="${ex0}" y1="${ey}" x2="${ex1}" y2="${ey}" stroke="${stroke}" stroke-width="${lw}"${da?` stroke-dasharray="${da}"`:''} />`;
+        }
+      }
+    }
+  }
+
+  document.getElementById('phaseMapCells').innerHTML=html+contourHtml;
+
+  // Crosshair at current S and D₀
+  const cx=((p0.scope-Smin)/(Smax-Smin)*W).toFixed(1);
+  const cy=((Dmax-Math.max(0.01,p0.depth))/(Dmax-Dmin)*H).toFixed(1);
+  document.getElementById('phaseMapCurS').setAttribute('x1',cx);document.getElementById('phaseMapCurS').setAttribute('x2',cx);
+  document.getElementById('phaseMapCurD').setAttribute('y1',cy);document.getElementById('phaseMapCurD').setAttribute('y2',cy);
+  document.getElementById('phaseMapPoint').setAttribute('cx',cx);document.getElementById('phaseMapPoint').setAttribute('cy',cy);
+
+  // Badge: 8-neighborhood check with directional strength.
+  // Normalizes by actual neighbor count so edge cells aren't artificially stable.
+  const curReg = regime[curJc][curIc];
+  const regNames = ['viable','crossover','absorbed'];
+  const neighborRegs = [];
+  for(let dj=-1;dj<=1;dj++){
+    for(let di=-1;di<=1;di++){
+      if(di===0&&dj===0) continue;
+      const ni=curIc+di, nj=curJc+dj;
+      if(ni>=0&&ni<NX&&nj>=0&&nj<NY) neighborRegs.push(regime[nj][ni]);
+    }
+  }
+  const total = neighborRegs.length;  // may be <8 at edges
+  const differentNeighbors = neighborRegs.filter(r=>r!==curReg);
+  const uniqueDiff = [...new Set(differentNeighbors)];
+  const nearBoundary = uniqueDiff.length>0;
+
+  const badge=document.getElementById('phaseMapBadge');
+  const regLabel=regNames[curReg];
+  const regColor=['var(--stable)','var(--vt)','var(--absorb)'][curReg];
+  const regBorder=['rgba(64,192,128,0.40)','var(--vtb)','rgba(224,88,80,0.40)'][curReg];
+
+  let badgeText;
+  if(!nearBoundary){
+    badgeText=`phase-map cell: ${regLabel}`;
+  } else if(uniqueDiff.length===1){
+    // One boundary direction — add strength based on neighbor proportion
+    const count = differentNeighbors.length;
+    const frac = count/total;
+    const strength = frac>=0.625?'strong':frac>=0.375?'moderate':'weak';
+    badgeText=`near ${regNames[uniqueDiff[0]]} boundary · ${strength} (${regLabel})`;
+  } else {
+    // Multiple boundary directions — show which dominates
+    const countByType={};
+    differentNeighbors.forEach(r=>{countByType[r]=(countByType[r]||0)+1;});
+    const sorted=Object.entries(countByType).sort((a,b)=>b[1]-a[1]);
+    const dominantReg=+sorted[0][0];
+    const dominated=sorted.length>1 && sorted[0][1]>sorted[1][1]; // dominant = strictly more than second-most
+    badgeText=dominated
+      ? `${regNames[dominantReg]}-dominant junction (${regLabel})`
+      : `balanced junction (${regLabel})`;
+  }
+  badge.textContent=badgeText;
+  badge.style.color=regColor;
+  badge.style.borderColor=regBorder;
+  badge.style.opacity='1';
+}
+
+let phaseMapTimer=null;
+function schedulePhaseMap(){ if(phaseMapTimer)clearTimeout(phaseMapTimer); phaseMapTimer=setTimeout(renderPhaseMap,120); }
+
+function renderSweep(){
+  // Run 26 mini-sims: S from 0.5 to 3.0 in 0.1 steps, all other params from current settings
+  // Shows whether collapse is parameter-specific or inevitable under scaling
+  const p0 = params();
+  const S_MIN=0.5, S_MAX=3.0, N_S=26;
+  const barW = 662/N_S;
+  let html='', firstAbsorb=-1, lastNonAbsorb=-1, lastContiguousNonAbsorb=-1;
+  const results=[];
+
+  for(let si=0;si<N_S;si++){
+    const S_val = S_MIN + (si/(N_S-1))*(S_MAX-S_MIN);
+    const p_sweep = Object.assign({}, p0, {scope: S_val});
+    const r = simulate(p_sweep, undefined, false, makeLCG(42+si));
+    const absorbed = r.absorbT !== null;
+    const crossover = !absorbed && r.crossoverT !== null;
+    const vf = r.Vs[r.Vs.length-1];
+    if(absorbed && firstAbsorb<0) firstAbsorb=si;
+    if(!absorbed) lastNonAbsorb=si;
+    // Track last contiguous non-absorbed bar immediately before first absorption
+    if(firstAbsorb<0 && !absorbed) lastContiguousNonAbsorb=si;
+    results.push({S_val, absorbed, crossover, vf});
+    const barH = Math.max(2, vf * 38);
+    const col = absorbed ? 'rgba(224,88,80,0.75)' : crossover ? 'rgba(232,160,48,0.70)' : 'rgba(64,192,128,0.65)';
+    const x = (si*barW).toFixed(1), w = (barW-1).toFixed(1);
+    html += `<rect x="${x}" y="${(44-barH).toFixed(1)}" width="${w}" height="${barH.toFixed(1)}" fill="${col}" rx="1"/>`;
+  }
+  document.getElementById('sweepBars').innerHTML = html;
+
+  // Mark current S position
+  const curSi = (p0.scope - S_MIN)/(S_MAX-S_MIN) * (N_S-1);
+  const curX = ((curSi/(N_S-1))*662).toFixed(1);
+  document.getElementById('sweepCurLine').setAttribute('x1',curX);
+  document.getElementById('sweepCurLine').setAttribute('x2',curX);
+  document.getElementById('sweepCurLbl').setAttribute('x',curX);
+
+  // Badge: show transition info
+  const badge = document.getElementById('sweepBadge');
+  const nCollapse = results.filter(r=>r.absorbed).length;
+  const nCrossover = results.filter(r=>r.crossover).length;
+  if(nCollapse===0&&nCrossover===0){
+    badge.textContent='viable across all S'; badge.style.color='var(--stable)'; badge.style.borderColor='rgba(64,192,128,0.40)';
+  } else if(nCollapse===0&&nCrossover>0){
+    badge.textContent='crossover appears, no absorption across S'; badge.style.color='var(--vt)'; badge.style.borderColor='var(--vtb)';
+  } else if(nCollapse===N_S){
+    badge.textContent='absorbs at all S'; badge.style.color='var(--absorb)'; badge.style.borderColor='rgba(224,88,80,0.40)';
+  } else {
+    const s_lo = lastContiguousNonAbsorb>=0 ? (S_MIN + (lastContiguousNonAbsorb/(N_S-1))*(S_MAX-S_MIN)).toFixed(1) : '?';
+    const s_hi = (S_MIN + (firstAbsorb/(N_S-1))*(S_MAX-S_MIN)).toFixed(1);
+    const bandText = s_lo===s_hi ? `S≈${s_hi}` : `S≈${s_lo}–${s_hi}`;
+    badge.textContent=`in this slice, absorption transition ${bandText}`; badge.style.color='var(--vt)'; badge.style.borderColor='var(--vtb)';
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   SELF-TEST SUITE
+   Uses the same simulate() engine as the live simulation.
+   Injects a seeded LCG PRNG so tests are deterministic —
+   same equations, different noise source.
+════════════════════════════════════════════════════ */
+function makeLCG(seed){
+  // Linear congruential generator — deterministic, reproducible
+  let rng = seed || 42;
+  return () => { rng = (rng * 1664525 + 1013904223) & 0xffffffff; return (rng >>> 0) / 0xffffffff; };
+}
+
+// Thin test wrapper: builds params, runs the shared engine, returns flat result
+function simTest(p, fixedDeff, corrOn, seed){
+  const lcg = makeLCG(seed || 42);
+  const r = simulate(p, fixedDeff, corrOn, lcg);
+  return {
+    crossoverT: r.crossoverT,
+    absorbT:    r.absorbT,
+    corrT:      r.corrT,
+    vFinal:     r.Vs[r.Vs.length-1],
+    pFinal:     r.Ps[r.Ps.length-1],
+  };
+}
+
+function near(a,b,tol){ return Math.abs(a-(b||0))<tol; }
+function approxT(actual,expected,tol){ 
+  if(expected===null&&actual===null) return true;
+  if(expected===null||actual===null) return false;
+  return Math.abs(actual-expected)<tol;
+}
+
+function runTests(){
+  const btn=document.getElementById('testBtn');
+  const resultsEl=document.getElementById('testResults');
+  btn.textContent='Running…'; btn.disabled=true;
+  resultsEl.style.display='block';
+  resultsEl.innerHTML='<div style="font-size:10px;color:var(--text3);font-style:italic">Running…</div>';
+
+  // Use setTimeout so UI updates before heavy computation
+  setTimeout(()=>{
+
+  const SEED=42;
+
+  // Test definitions: [name, preset, fixedDeff, corrOn, checks]
+  // checks: array of {label, fn(result) → {pass,got,exp}}
+  const TESTS_DEF = [
+
+    // ── COUNTERFACTUAL INVARIANT ──────────────────────
+    {group:'Counterfactual invariant (D_eff=1 → erosion=0)', tests:[
+      {name:'Default: V_cf ≈ 1.0', preset:'default', cf:true,
+        check:r=>({pass:r.vFinal>0.98, got:r.vFinal.toFixed(3), exp:'≥ 0.98'})},
+      {name:'Engagement: V_cf ≈ 1.0', preset:'engagement', cf:true,
+        check:r=>({pass:r.vFinal>0.98, got:r.vFinal.toFixed(3), exp:'≥ 0.98'})},
+      {name:'RLHF: V_cf ≈ 1.0', preset:'rlhf', cf:true,
+        check:r=>({pass:r.vFinal>0.98, got:r.vFinal.toFixed(3), exp:'≥ 0.98'})},
+      {name:'Near rescue: V_cf ≈ 1.0', preset:'nearrescue', cf:true,
+        check:r=>({pass:r.vFinal>0.98, got:r.vFinal.toFixed(3), exp:'≥ 0.98'})},
+    ]},
+
+    // ── PRESET BEHAVIORS ──────────────────────────────
+    {group:'Preset behaviors — no correction', tests:[
+      {name:'Default: absorbs (V=0)', preset:'default',
+        check:r=>({pass:r.absorbT!==null&&r.vFinal<0.01, got:`abs@${r.absorbT?.toFixed(1)??'—'} V=${r.vFinal.toFixed(3)}`, exp:'absorbed, V≈0'})},
+      {name:'Engagement: absorbs fast (t<2)', preset:'engagement',
+        check:r=>({pass:r.absorbT!==null&&r.absorbT<2.5, got:`abs@${r.absorbT?.toFixed(1)??'—'}`, exp:'abs before t=2.5'})},
+      {name:'RLHF: absorbs before t=6', preset:'rlhf',
+        check:r=>({pass:r.absorbT!==null&&r.absorbT<6.5, got:`abs@${r.absorbT?.toFixed(1)??'—'}`, exp:'abs before t=6.5'})},
+      {name:'High depth: no absorption', preset:'highdepth',
+        check:r=>({pass:r.absorbT===null&&r.vFinal>0.30, got:`V=${r.vFinal.toFixed(3)} abs=${r.absorbT?.toFixed(1)??'none'}`, exp:'V>0.30, no absorb'})},
+      {name:'Near rescue: absorbs without correction', preset:'nearrescue',
+        check:r=>({pass:r.absorbT!==null&&r.vFinal<0.01, got:`abs@${r.absorbT?.toFixed(1)??'—'} V=${r.vFinal.toFixed(3)}`, exp:'absorbed, V≈0'})},
+      {name:'Falsification: no crossover, no absorb', preset:'falsification',
+        check:r=>({pass:r.crossoverT===null&&r.absorbT===null&&r.vFinal>0.85, got:`cross=${r.crossoverT?.toFixed(1)??'none'} V=${r.vFinal.toFixed(3)}`, exp:'stable V>0.85'})},
+    ]},
+
+    // ── CORRECTION MECHANICS ──────────────────────────
+    {group:'Correction mechanics — D_base trigger', tests:[
+      {name:'Near rescue: correction saves V (V>0.40)', preset:'nearrescue', corr:true,
+        check:r=>({pass:r.absorbT===null&&r.vFinal>0.40, got:`abs=${r.absorbT?.toFixed(1)??'none'} V=${r.vFinal.toFixed(3)}`, exp:'V>0.40, no absorb'})},
+      {name:'Near rescue: intervention fires before t=10', preset:'nearrescue', corr:true,
+        check:r=>({pass:r.corrT!==null&&r.corrT<10, got:`corrT=${r.corrT?.toFixed(1)??'none'}`, exp:'t<10'})},
+      {name:'Default: intervention fires (detected decay)', preset:'default', corr:true,
+        check:r=>({pass:r.corrT!==null, got:`corrT=${r.corrT?.toFixed(1)??'none'}`, exp:'corrT not null'})},
+      {name:'Default: correction delays but cannot rescue', preset:'default', corr:true,
+        check:r=>({pass:r.absorbT!==null&&r.absorbT>10, got:`abs@${r.absorbT?.toFixed(1)??'none'}`, exp:'abs after t=10 (delayed)'})},
+      {name:'Engagement: correction cannot rescue', preset:'engagement', corr:true,
+        check:r=>({pass:r.absorbT!==null&&r.vFinal<0.01, got:`abs@${r.absorbT?.toFixed(1)??'—'} V=${r.vFinal.toFixed(3)}`, exp:'still absorbs'})},
+      {name:'High depth: D_base trigger never fires', preset:'highdepth', corr:true,
+        check:r=>({pass:r.corrT===null, got:`corrT=${r.corrT?.toFixed(1)??'none'}`, exp:'null (D_base stable)'})},
+      {name:'Falsification: correction fires (α erodes D_base slowly)', preset:'falsification', corr:true,
+        check:r=>({pass:r.corrT!==null, got:`corrT=${r.corrT?.toFixed(1)??'none'}`, exp:'fires (eps=0.01)'})},
+    ]},
+
+    // ── EQUATION INVARIANTS ───────────────────────────
+    {group:'Equation invariants', tests:[
+      {name:'δ=0 → no erosion, V stays high', preset:'default', override:{delta:0.0},
+        check:r=>({pass:r.absorbT===null&&r.vFinal>0.90, got:`V=${r.vFinal.toFixed(3)} abs=${r.absorbT?.toFixed(1)??'none'}`, exp:'V>0.90, no absorb'})},
+      {name:'D₀=1 → no meta-decay, V stays very high', preset:'default', override:{depth:1.0,eps:0.0},
+        check:r=>({pass:r.vFinal>0.92, got:`V=${r.vFinal.toFixed(3)}`, exp:'V>0.92'})},
+      {name:'κ=0 → fixed α, slower collapse than κ=0.5', preset:'default', override:{kappa:0.0},
+        check:(r,_,ctx)=>({pass:r.absorbT===null||r.absorbT>ctx.default_absorbT, got:`abs@${r.absorbT?.toFixed(1)??'none'}`, exp:'later than κ=0.5 default'})},
+      {name:'S=0.5 (low scope) → absorbs slower than S=1.0', preset:'default', override:{scope:0.5},
+        check:(r,_,ctx)=>({pass:r.absorbT===null||r.absorbT>ctx.default_absorbT+5, got:`abs@${r.absorbT?.toFixed(1)??'none'}`, exp:`later than ${ctx.default_absorbT.toFixed(1)} (or none)`})},
+      {name:'γ=0 → P stays near 1 after correction (no gravity)', preset:'nearrescue', override:{gamma:0.0}, corr:true,
+        check:r=>({pass:r.pFinal>0.85, got:`P=${r.pFinal.toFixed(3)}`, exp:'P>0.85 (no gravity sag)'})},
+      {name:'γ=0.10 → P sags noticeably after correction', preset:'nearrescue', override:{gamma:0.10}, corr:true,
+        check:r=>({pass:r.pFinal<0.85, got:`P=${r.pFinal.toFixed(3)}`, exp:'P<0.85 (gravity pulls P down)'})},
+      {name:'Proxy gravity: P never saturates at 1.0 when γ>0', preset:'default',
+        check:(r,p)=>({pass:r.pFinal<0.999, got:`P=${r.pFinal.toFixed(4)}`, exp:'<0.999 (gravity prevents full saturation)'})},
+      {name:'P_eq attractor: safe regime P close to equilibrium', preset:'falsification',
+        check:(r,p)=>{
+          // In safe regime, V≈0.90 at end; P_eq = α_eff·S·V/(α_eff·S·V+γ)
+          const aMax=Math.min(p.alpha*(1+p.kappa),p.alpha*3);
+          // Use actual vFinal from run, not hardcoded approximation
+          const vFinal=r.vFinal;
+          const pEq=aMax*p.scope*vFinal/(aMax*p.scope*vFinal+p.gamma);
+          const diff=Math.abs(r.pFinal-pEq);
+          return {pass:diff<0.12, got:`P=${r.pFinal.toFixed(3)} P_eq≈${pEq.toFixed(3)} |Δ|=${diff.toFixed(3)}`, exp:'within 0.12 of P_eq(V_final)'};
+        }},
+      {name:'ε=0 → D_base stable, no correction trigger', preset:'default', override:{eps:0.0}, corr:true,
+        check:r=>({pass:r.corrT===null, got:`corrT=${r.corrT?.toFixed(1)??'none'}`, exp:'null (D_base not eroded)'})},
+    ]},
+
+    // ── CROSSOVER DETECTION ───────────────────────────
+    {group:'Crossover detection', tests:[
+      {name:'Default: crossover before absorption', preset:'default',
+        check:r=>({pass:r.crossoverT!==null&&(r.absorbT===null||r.crossoverT<r.absorbT), got:`cross@${r.crossoverT?.toFixed(1)??'—'} abs@${r.absorbT?.toFixed(1)??'—'}`, exp:'cross < abs'})},
+      {name:'High depth: no absorption in T=300', preset:'highdepth',
+        check:r=>({pass:r.absorbT===null, got:`abs=${r.absorbT?.toFixed(1)??'none'} V=${r.vFinal.toFixed(3)}`, exp:'no absorb'})},
+      {name:'High depth: if crossover, it is late (t>20)', preset:'highdepth',
+        check:r=>({pass:r.crossoverT===null||r.crossoverT>20, got:`cross=${r.crossoverT?.toFixed(1)??'none'}`, exp:'none or t>20'})},
+      {name:'Falsification: no crossover in T=500', preset:'falsification',
+        check:r=>({pass:r.crossoverT===null, got:`cross=${r.crossoverT?.toFixed(1)??'none'}`, exp:'none'})},
+    ]},
+  ];
+
+  // Run all tests
+  const results = [];
+  let passed=0, failed=0;
+
+  // Pre-compute default absorb time for context
+  const ctx = {};
+  const defRes = simTest(PRESETS['default'], undefined, false, SEED);
+  ctx.default_absorbT = defRes.absorbT || 999;
+
+  for(const group of TESTS_DEF){
+    const groupRows = [];
+    for(const t of group.tests){
+      const p = Object.assign({}, PRESETS[t.preset], t.override||{});
+      const r = simTest(p, t.cf?1.0:undefined, t.corr||false, SEED);
+      const res = t.check(r, p, ctx);
+      if(res.pass) passed++; else failed++;
+      groupRows.push({name:t.name, ...res});
+    }
+    results.push({group:group.group, rows:groupRows});
+  }
+
+  // Render
+  const total = passed+failed;
+  let html=`<div style="display:flex;gap:20px;padding:8px 10px;margin-bottom:10px;background:var(--surface2);border:1px solid var(--border);border-radius:2px;flex-wrap:wrap;align-items:center">
+    <div style="text-align:center"><div style="font-size:22px;font-weight:300;font-family:var(--mono);color:${failed===0?'var(--stable)':'var(--absorb)'}">${passed}/${total}</div><div style="font-size:9px;color:var(--text3);letter-spacing:.07em;text-transform:uppercase">passed</div></div>
+    <div style="font-size:10px;color:var(--text3);font-style:italic;flex:1">${failed===0?'All checks passed — equations behave as documented.':failed+' failure'+(failed!==1?'s':'')+' — see details below.'}</div>
+  </div>`;
+  for(const grp of results){
+    html+=`<div class="test-group"><div class="test-group-name">${grp.group}</div>`;
+    for(const row of grp.rows){
+      const cls=row.pass?'t-pass':'t-fail';
+      const icon=row.pass?'✓':'✗';
+      html+=`<div class="test-row ${cls}"><span class="test-icon">${icon}</span><span class="test-name">${row.name}</span><span class="test-vals">${row.got} <em style="color:var(--text3)">/ ${row.exp}</em></span></div>`;
+    }
+    html+='</div>';
+  }
+  resultsEl.innerHTML=html;
+  btn.textContent='Run tests'; btn.disabled=false;
+
+  },10); // end setTimeout
+}
+
+onParam();
+runSim();
+</script>
+</body>
+</html>
