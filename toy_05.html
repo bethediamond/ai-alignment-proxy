@@ -45,8 +45,11 @@ h1{font-family:var(--serif);font-size:22px;font-weight:400;font-style:italic;let
 
 .main{display:grid;grid-template-columns:308px 1fr;gap:14px;align-items:start}
 @media(max-width:820px){.main{grid-template-columns:1fr}}
-.ctrl-col{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;display:flex;flex-direction:column;gap:9px;scrollbar-width:thin}
-.ctrl-col::-webkit-scrollbar{width:4px}.ctrl-col::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+.ctrl-col{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;display:flex;flex-direction:column;gap:9px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.18) transparent}
+.ctrl-col::-webkit-scrollbar{width:4px}
+.ctrl-col::-webkit-scrollbar-track{background:var(--surface2);border-radius:2px}
+.ctrl-col::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.18);border-radius:2px;transition:background .15s}
+.ctrl-col::-webkit-scrollbar-thumb:hover{background:var(--vt)}
 
 .panel{background:var(--surface);border:1px solid var(--border2);border-radius:3px}
 .pt{font-size:9px;color:var(--text3);letter-spacing:.11em;text-transform:uppercase;padding:9px 13px 8px;border-bottom:1px solid var(--border);font-weight:500}
